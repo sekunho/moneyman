@@ -1,0 +1,10 @@
+[workspace]
+members = [ "crates/*" ]
+
+[workspace.package]
+version = "0.1.0"
+authors = [ "ho sekun <software@sekun.net>" ]
+description = "A currency conversion library and TUI"
+
+[workspace.dependencies]
+moneyman_core = { path = "crates/moneyman_core", version = "0.1" }
