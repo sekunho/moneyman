@@ -35,7 +35,7 @@
 
             src = ./.;
             doCheck = true;
-            buildInputs = [];
+            nativeBuildInputs = with pkgs; [ openssl pkg-config ];
           };
 
           moneyman-static = naersk'.buildPackage {
@@ -43,8 +43,8 @@
 
             src = ./.;
             doCheck = true;
-            nativeBuildInputs = with pkgs; [ pkgsStatic.stdenv.cc ];
-            buildInputs = [];
+            nativeBuildInputs = with pkgs; [ pkgsStatic.stdenv.cc openssl pkg-config ];
+            buildInputs = [ ];
 
             CARGO_BUILD_TARGET = "x86_64-unknown-linux-musl";
             CARGO_BUILD_RUSTFLAGS = "-C target-feature=+crt-static";
@@ -52,15 +52,21 @@
         };
       };
 
-      devShells.${system}.default = pkgs.mkShell {
-        buildInputs = with pkgs; [
-          nil
+      devShells.${system}.default =
+        let
+          rustPackages = with fenix'.stable; [
+            rustc
+            cargo
+            clippy
+            rustfmt
+            rust-analyzer
+          ];
 
-          fenix'.stable.rustc
-          fenix'.stable.cargo
-          fenix'.stable.clippy
-          fenix'.stable.rustfmt
-        ];
-      };
+          nixPackages = with pkgs; [ nil ];
+
+          misc = with pkgs; [ openssl pkg-config ];
+        in pkgs.mkShell {
+          buildInputs = rustPackages ++ nixPackages ++ misc;
+        };
     };
 }
