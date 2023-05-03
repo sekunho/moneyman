@@ -11,3 +11,8 @@ moneyman_core = { path = "crates/moneyman_core", version = "0.1" }
 
 ## HTTP client
 reqwest = { version = "0.11", features = [ "blocking" ] }
+bytes = { version = "1.4" }
+zip = { version = "0.6" }
+rusty-money = { version = "0.4" }
+polars = { version = "0.28", features = [ "lazy", "csv-file", "strings", "temporal", "dtype-datetime" ] }
+chrono = "0.4.24"

@@ -5,3 +5,7 @@ edition = "2021"
 
 [dependencies]
 reqwest = { workspace = true }
+bytes = { workspace = true }
+zip = { workspace = true }
+rusty-money = { workspace = true }
+polars = { workspace = true }
