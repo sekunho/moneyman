@@ -11,3 +11,22 @@ moneyman_core = { path = "crates/moneyman_core", version = "0.1" }
 
 ## HTTP client
 reqwest = { version = "0.11", features = [ "blocking" ] }
+
+## Bytes data type
+bytes = { version = "1.4" }
+
+## Handling ZIP archives/buffers
+zip = { version = "0.6" }
+
+## Here comes the moneeeeeyyyy, here comes the money
+rusty-money = { version = "0.4" }
+
+## Date/time stuff
+chrono = "0.4"
+
+## Because I don't want to deal with CSVs, even via polars lol
+rusqlite = { version = "0.29.0", features = ["bundled", "vtab", "csvtab" ] }
+
+## Decimal data type
+rust_decimal_macros = "1.29"
+rust_decimal = "1.29"

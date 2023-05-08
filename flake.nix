@@ -3,12 +3,11 @@
 
   inputs = {
     fenix.url = "github:nix-community/fenix";
-    flake-utils.url = "github:numtide/flake-utils";
     naersk.url = "github:nix-community/naersk";
     nixpkgs.url = "github:NixOS/nixpkgs/nixpkgs-unstable";
   };
 
-  outputs = { self, fenix, flake-utils, naersk, nixpkgs }:
+  outputs = { self, fenix, naersk, nixpkgs }:
     let
       system = "x86_64-linux";
       pkgs = (import nixpkgs) { inherit system; };
@@ -59,12 +58,12 @@
             cargo
             clippy
             rustfmt
-            rust-analyzer
+            pkgs.rust-analyzer
           ];
 
           nixPackages = with pkgs; [ nil ];
 
-          misc = with pkgs; [ openssl pkg-config ];
+          misc = with pkgs; [ openssl pkg-config sqlite ];
         in pkgs.mkShell {
           buildInputs = rustPackages ++ nixPackages ++ misc;
         };
