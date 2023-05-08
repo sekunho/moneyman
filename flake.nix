@@ -63,7 +63,7 @@
 
           nixPackages = with pkgs; [ nil ];
 
-          misc = with pkgs; [ openssl pkg-config ];
+          misc = with pkgs; [ openssl pkg-config sqlite ];
         in pkgs.mkShell {
           buildInputs = rustPackages ++ nixPackages ++ misc;
         };
