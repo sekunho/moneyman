@@ -1,9 +1,17 @@
-use std::path::{Path, PathBuf};
+use std::path::PathBuf;
 
 use bytes::Bytes;
+use chrono::NaiveDate;
 use reqwest::blocking::*;
 use reqwest::header::CONTENT_TYPE;
 use rusqlite::{vtab::csvtab, Connection};
+use rust_decimal::Decimal;
+
+use rust_decimal_macros::dec;
+use rusty_money::{
+    iso::{self, Currency},
+    Exchange, ExchangeRate, Money, MoneyError,
+};
 
 #[derive(Debug)]
 pub enum Error {
@@ -11,6 +19,8 @@ pub enum Error {
     ZipError(zip::result::ZipError),
     DbError(rusqlite::Error),
     IoError(std::io::Error),
+    MoneyError(MoneyError),
+    RateNotFound,
 }
 
 impl From<reqwest::Error> for Error {
@@ -37,11 +47,94 @@ impl From<std::io::Error> for Error {
     }
 }
 
+impl From<MoneyError> for Error {
+    fn from(err: MoneyError) -> Self {
+        Error::MoneyError(err)
+    }
+}
+
+pub fn convert_on_date<'a>(
+    from_amount: Money<'a, Currency>,
+    to: &'a Currency,
+    on: NaiveDate,
+) -> Result<Money<'a, Currency>, Error> {
+    let from_currency = from_amount.currency();
+
+    match (from_currency, to) {
+        (from, to) if from == to => Ok(from_amount),
+        (from @ iso::EUR, to) | (from, to @ iso::EUR) => {
+            println!("EUR involved");
+            let currencies = match to {
+                iso::EUR => Vec::from([from]),
+                _ => Vec::from([to]),
+            };
+            let rates = find_rates_of_currencies(dbg!(currencies), on)?;
+            let mut exchange = Exchange::new();
+
+            rates.iter().for_each(|rate| exchange.set_rate(rate));
+
+            let rate = match to {
+                iso::EUR => exchange.get_rate(from, iso::EUR).ok_or(Error::RateNotFound),
+                _ => exchange.get_rate(iso::EUR, to).ok_or(Error::RateNotFound),
+            };
+            let to_money = rate?.convert(from_amount)?;
+
+            Ok(Money::from_decimal(*(to_money.amount()), to))
+        }
+        _ => todo!(),
+    }
+}
+
+/// Finds the rates of the given currencies to one EUR. This will ignore EUR.
+fn find_rates_of_currencies(
+    currencies: Vec<&Currency>,
+    on: NaiveDate,
+) -> Result<Vec<ExchangeRate<Currency>>, Error> {
+    let conn = Connection::open("eurofxref-hist.db3").expect("failed conn");
+    let filtered_currencies: Vec<String> = currencies
+        .iter()
+        .filter_map(|c| {
+            if *c == iso::EUR {
+                None
+            } else {
+                Some(c.iso_alpha_code.to_string())
+            }
+        })
+        .collect();
+    let selectable_columns = filtered_currencies.join(", ");
+
+    let mut stmt = conn
+        .prepare(format!("SELECT {selectable_columns} FROM rates WHERE date = ?1").as_ref())
+        .expect("oh no");
+
+    let rates = stmt.query_row([on.to_string()], |row| {
+        let rate: String = row.get(0).expect("failed to get row column");
+        // FIXME: This can fail to parse because ECB doesn't have the
+        // exchange rates of all of its listed currencies.
+        let rate = Decimal::from_str_exact(rate.as_ref()).expect("not decimal");
+
+        let rates: Result<Vec<_>, _> = currencies
+            .into_iter()
+            .fold(Vec::new(), |mut acc, currency| {
+                acc.push(ExchangeRate::new(currency, iso::EUR, dec!(1) / rate));
+                acc.push(ExchangeRate::new(iso::EUR, currency, rate));
+
+                acc
+            })
+            // Oh no why would I do this ;(
+            .into_iter()
+            .collect();
+
+        Ok(rates)
+    })?;
+
+    rates.map_err(|e| Error::MoneyError(e))
+}
+
 /// Syncs the currency exchange history from the ECB
 pub fn sync_ecb_history() -> Result<(), Error> {
     let dir = PathBuf::from(DEFAULT_DATA_DIR);
     download_latest_history(dir.clone())?;
-    // clean_csv(dir)?;
     setup_db()?;
 
     Ok(())
@@ -88,10 +181,10 @@ fn sqlite_and_its_dynamic_typing_what_a_good_idea_lol(
     conn: &Connection,
 ) -> Result<(), rusqlite::Error> {
     let currencies = [
-        "usd", "jpy", "bgn", "cyp", "czk", "dkk", "eek", "gbp", "huf", "ltl", "lvl", "mtl", "pln",
-        "rol", "ron", "sek", "sit", "skk", "chf", "isk", "nok", "hrk", "rub", "trl", "try", "aud",
-        "brl", "cad", "cny", "hkd", "idr", "ils", "inr", "krw", "mxn", "myr", "nzd", "php", "sgd",
-        "thb", "zar",
+        "USD", "JPY", "BGN", "CYP", "CZK", "DKK", "EEK", "GBP", "HUF", "LTL", "LVL", "MTL", "PLN",
+        "ROL", "RON", "SEK", "SIT", "SKK", "CHF", "ISK", "NOK", "HRK", "RUB", "TRL", "TRY", "AUD",
+        "BRL", "CAD", "CNY", "HKD", "IDR", "ILS", "INR", "KRW", "MXN", "MYR", "NZD", "PHP", "SGD",
+        "THB", "ZAR",
     ];
 
     let statements = currencies
@@ -117,53 +210,6 @@ fn seed_db(conn: &Connection) -> Result<(), rusqlite::Error> {
             USING csv
                 ( filename=/home/sekun/.moneyman/eurofxref-hist.csv
                 , header=yes
-                , columns=42
-                , schema='
-                    CREATE TABLE rates
-                        ( date DATE
-                        , usd  DECIMAL(19,4)
-                        , jpy  DECIMAL(19,4)
-                        , bgn  DECIMAL(19,4)
-                        , cyp  DECIMAL(19,4)
-                        , czk  DECIMAL(19,4)
-                        , dkk  DECIMAL(19,4)
-                        , eek  DECIMAL(19,4)
-                        , gbp  DECIMAL(19,4)
-                        , huf  DECIMAL(19,4)
-                        , ltl  DECIMAL(19,4)
-                        , lvl  DECIMAL(19,4)
-                        , mtl  DECIMAL(19,4)
-                        , pln  DECIMAL(19,4)
-                        , rol  DECIMAL(19,4)
-                        , ron  DECIMAL(19,4)
-                        , sek  DECIMAL(19,4)
-                        , sit  DECIMAL(19,4)
-                        , skk  DECIMAL(19,4)
-                        , chf  DECIMAL(19,4)
-                        , isk  DECIMAL(19,4)
-                        , nok  DECIMAL(19,4)
-                        , hrk  DECIMAL(19,4)
-                        , rub  DECIMAL(19,4)
-                        , trl  DECIMAL(19,4)
-                        , try  DECIMAL(19,4)
-                        , aud  DECIMAL(19,4)
-                        , brl  DECIMAL(19,4)
-                        , cad  DECIMAL(19,4)
-                        , cny  DECIMAL(19,4)
-                        , hkd  DECIMAL(19,4)
-                        , idr  DECIMAL(19,4)
-                        , ils  DECIMAL(19,4)
-                        , inr  DECIMAL(19,4)
-                        , krw  DECIMAL(19,4)
-                        , mxn  DECIMAL(19,4)
-                        , myr  DECIMAL(19,4)
-                        , nzd  DECIMAL(19,4)
-                        , php  DECIMAL(19,4)
-                        , sgd  DECIMAL(19,4)
-                        , thb  DECIMAL(19,4)
-                        , zar  DECIMAL(19,4)
-                        )
-                  '
                 );
 
         CREATE TABLE rates AS SELECT * FROM vrates;

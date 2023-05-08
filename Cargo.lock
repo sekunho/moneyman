@@ -847,6 +847,8 @@ version = "0.1.0"
 dependencies = [
  "chrono",
  "moneyman_core",
+ "rust_decimal",
+ "rust_decimal_macros",
  "rusty-money",
 ]
 

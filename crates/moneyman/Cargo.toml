@@ -9,3 +9,5 @@ edition = "2021"
 moneyman_core = { workspace = true }
 rusty-money = { workspace = true }
 chrono = { workspace = true }
+rust_decimal_macros = { workspace = true }
+rust_decimal = { workspace = true }
