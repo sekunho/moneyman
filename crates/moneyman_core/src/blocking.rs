@@ -1,4 +1,4 @@
-use std::path::Path;
+use std::path::{Path, PathBuf};
 
 use bytes::Bytes;
 use reqwest::blocking::*;
@@ -39,18 +39,20 @@ impl From<std::io::Error> for Error {
 
 /// Syncs the currency exchange history from the ECB
 pub fn sync_ecb_history() -> Result<(), Error> {
-    download_latest_history()?;
+    let dir = PathBuf::from(DEFAULT_DATA_DIR);
+    download_latest_history(dir.clone())?;
+    // clean_csv(dir)?;
     setup_db()?;
 
     Ok(())
 }
 
-// TODO: Refactor to /var/lib/moneyman
+// FIXME: Remove file path hardcoding (maybe use `/var/lib/moneyman`?)
 const DEFAULT_DATA_DIR: &str = "/home/sekun/.moneyman/";
 
 // TODO: Refactor this mess cause this is only for experimenting
 /// Downloads and saves the latest forex history
-fn download_latest_history() -> Result<(), Error> {
+fn download_latest_history(dir: PathBuf) -> Result<(), Error> {
     let url = "https://www.ecb.europa.eu/stats/eurofxref/eurofxref-hist.zip";
     let client = Client::new()
         .get(url)
@@ -60,13 +62,12 @@ fn download_latest_history() -> Result<(), Error> {
     let content: Bytes = res.bytes()?;
     let reader = std::io::Cursor::new(content.as_ref());
     let mut zip = zip::ZipArchive::new(reader)?;
-    let path = Path::new(DEFAULT_DATA_DIR);
 
-    if !path.exists() {
-        std::fs::create_dir(DEFAULT_DATA_DIR)?;
-        zip.extract(path)?;
+    if !dir.exists() {
+        std::fs::create_dir(dir.clone())?;
+        zip.extract(dir)?;
     } else {
-        zip.extract(path)?;
+        zip.extract(dir)?;
     }
 
     Ok(())
@@ -75,8 +76,37 @@ fn download_latest_history() -> Result<(), Error> {
 /// Sets up an SQLite database with the exchange rate history
 fn setup_db() -> Result<(), rusqlite::Error> {
     let conn = Connection::open("eurofxref-hist.db3")?;
-    csvtab::load_module(&conn)?;
 
+    seed_db(&conn)?;
+    sqlite_and_its_dynamic_typing_what_a_good_idea_lol(&conn)?;
+
+    Ok(())
+}
+
+/// Sets rows with "N/A" to actual NULL values
+fn sqlite_and_its_dynamic_typing_what_a_good_idea_lol(
+    conn: &Connection,
+) -> Result<(), rusqlite::Error> {
+    let currencies = [
+        "usd", "jpy", "bgn", "cyp", "czk", "dkk", "eek", "gbp", "huf", "ltl", "lvl", "mtl", "pln",
+        "rol", "ron", "sek", "sit", "skk", "chf", "isk", "nok", "hrk", "rub", "trl", "try", "aud",
+        "brl", "cad", "cny", "hkd", "idr", "ils", "inr", "krw", "mxn", "myr", "nzd", "php", "sgd",
+        "thb", "zar",
+    ];
+
+    let statements = currencies
+        .map(|c| format!("UPDATE rates SET {c} = null WHERE {c} = 'N/A';"))
+        .join("\n");
+
+    let statements = format!("BEGIN; \n{statements}\nCOMMIT;");
+    (*conn).execute_batch(statements.as_ref())
+}
+
+/// Seeds the DB with the history of exchange rates
+fn seed_db(conn: &Connection) -> Result<(), rusqlite::Error> {
+    csvtab::load_module(conn)?;
+
+    // FIXME: Remove file path hardcoding
     let script = "
         BEGIN;
 
@@ -143,7 +173,5 @@ fn setup_db() -> Result<(), rusqlite::Error> {
         COMMIT;
     ";
 
-    conn.execute_batch(script)?;
-
-    Ok(())
+    conn.execute_batch(script)
 }
