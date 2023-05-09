@@ -12,13 +12,13 @@ use rusty_money::{
 use crate::error::Error;
 
 /// Finds the rates of the given currencies to one EUR. This will ignore EUR.
-pub(crate) fn find_rates_of_currencies(
-    mut data_dir: PathBuf,
-    currencies: Vec<&Currency>,
+pub(crate) fn find_rates_of_currencies<'c>(
+    data_dir: &PathBuf,
+    currencies: Vec<&'c Currency>,
     on: NaiveDate,
-) -> Result<Vec<ExchangeRate<Currency>>, Error> {
-    data_dir.push("eurofxref-hist.db3");
-    let conn = Connection::open(data_dir).expect("failed conn");
+) -> Result<Vec<ExchangeRate<'c, Currency>>, Error> {
+    let db_path = data_dir.join("eurofxref-hist.db3");
+    let conn = Connection::open(db_path).expect("failed conn");
     let filtered_currencies: Vec<String> = currencies
         .iter()
         .filter_map(|c| {
@@ -61,15 +61,12 @@ pub(crate) fn find_rates_of_currencies(
 }
 
 /// Sets up an SQLite database with the exchange rate history
-pub fn setup_db(mut data_dir: PathBuf) -> Result<(), rusqlite::Error> {
+pub fn setup_db(data_dir: &PathBuf) -> Result<(), rusqlite::Error> {
     // CSV file path
-    let mut other_data_dir = data_dir.clone();
-    other_data_dir.push("eurofxref-hist.csv");
-    let csv_path = other_data_dir;
+    let csv_path = data_dir.join("eurofxref-hist.csv");
 
     // DB file path
-    data_dir.push("eurofxref-hist.db3");
-    let db_path = dbg!(data_dir);
+    let db_path = data_dir.join("eurofxref-hist.db3");
     let conn = Connection::open(db_path)?;
 
     seed_db(csv_path, &conn)?;

@@ -867,6 +867,7 @@ name = "moneyman"
 version = "0.1.0"
 dependencies = [
  "chrono",
+ "dirs",
  "moneyman_core",
  "rust_decimal",
  "rust_decimal_macros",
