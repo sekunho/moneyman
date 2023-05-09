@@ -21,7 +21,7 @@ fn main() {
     let date = NaiveDate::from_ymd_opt(2023, 5, 4).expect("ok date");
 
     // Convert 6,500.00 USD to EUR
-    let _ = moneyman_core::convert_on_date(&data_dir, amount_in_usd.clone(), iso::EUR, date);
+    let _ = dbg!(moneyman_core::convert_on_date(&data_dir, amount_in_usd.clone(), iso::EUR, date));
 
     // Convert 1,000.00 EUR to JPY
     let _ = moneyman_core::convert_on_date(&data_dir, amount_in_eur.clone(), iso::JPY, date);
