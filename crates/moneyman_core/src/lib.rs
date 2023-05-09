@@ -23,12 +23,11 @@ pub fn convert_on_date<'a>(
     match (from_currency, to) {
         (from, to) if from == to => Ok(from_amount),
         (from @ iso::EUR, to) | (from, to @ iso::EUR) => {
-            println!("EUR involved");
             let currencies = match to {
                 iso::EUR => Vec::from([from]),
                 _ => Vec::from([to]),
             };
-            let rates = persistence::find_rates_of_currencies(dbg!(currencies), on)?;
+            let rates = persistence::find_rates_of_currencies(currencies, on)?;
             let mut exchange = Exchange::new();
 
             rates.iter().for_each(|rate| exchange.set_rate(rate));
@@ -41,6 +40,20 @@ pub fn convert_on_date<'a>(
 
             Ok(Money::from_decimal(*(to_money.amount()), to))
         }
-        _ => todo!(),
+        (from, to) => {
+            let currencies = Vec::from([from, to]);
+            let rates = persistence::find_rates_of_currencies(currencies, on)?;
+            let mut exchange = Exchange::new();
+
+            rates.iter().for_each(|rate| exchange.set_rate(rate));
+
+            // Use EUR as the bridge between currencies
+            let from_curr_to_eur_rate = exchange.get_rate(from, iso::EUR).ok_or(Error::RateNotFound);
+            let eur = from_curr_to_eur_rate?.convert(from_amount)?;
+            let from_eur_to_target_curr_rate = exchange.get_rate(iso::EUR, to).ok_or(Error::RateNotFound)?;
+            let target_money = from_eur_to_target_curr_rate.convert(eur)?;
+
+            Ok(Money::from_decimal(*(target_money.amount()), to))
+        },
     }
 }

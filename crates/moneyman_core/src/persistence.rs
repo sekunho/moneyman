@@ -1,8 +1,11 @@
 use chrono::NaiveDate;
-use rusqlite::{Connection, vtab::csvtab};
+use rusqlite::{vtab::csvtab, Connection};
 use rust_decimal::Decimal;
 use rust_decimal_macros::dec;
-use rusty_money::{iso::{Currency, self}, ExchangeRate};
+use rusty_money::{
+    iso::{self, Currency},
+    ExchangeRate,
+};
 
 use crate::error::Error;
 
@@ -29,14 +32,15 @@ pub(crate) fn find_rates_of_currencies(
         .expect("oh no");
 
     let rates = stmt.query_row([on.to_string()], |row| {
-        let rate: String = row.get(0).expect("failed to get row column");
-        // FIXME: This can fail to parse because ECB doesn't have the
-        // exchange rates of all of its listed currencies.
-        let rate = Decimal::from_str_exact(rate.as_ref()).expect("not decimal");
-
         let rates: Result<Vec<_>, _> = currencies
             .into_iter()
-            .fold(Vec::new(), |mut acc, currency| {
+            .enumerate()
+            .fold(Vec::new(), |mut acc, (index, currency)| {
+                let rate: String = row.get(index).expect("failed to get row column");
+                // FIXME: This can fail to parse because ECB doesn't have the
+                // exchange rates of all of its listed currencies.
+                let rate = Decimal::from_str_exact(rate.as_ref()).expect("not decimal");
+
                 acc.push(ExchangeRate::new(currency, iso::EUR, dec!(1) / rate));
                 acc.push(ExchangeRate::new(iso::EUR, currency, rate));
 
