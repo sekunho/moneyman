@@ -1,6 +1,4 @@
 {
-  description = "A very basic flake";
-
   inputs = {
     fenix.url = "github:nix-community/fenix";
     naersk.url = "github:nix-community/naersk";

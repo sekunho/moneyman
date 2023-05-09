@@ -30,3 +30,6 @@ rusqlite = { version = "0.29.0", features = ["bundled", "vtab", "csvtab" ] }
 ## Decimal data type
 rust_decimal_macros = "1.29"
 rust_decimal = "1.29"
+
+## directory stuff
+dirs = "5.0"

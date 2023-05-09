@@ -6,6 +6,7 @@ pub enum Error {
     IoError(std::io::Error),
     MoneyError(rusty_money::MoneyError),
     RateNotFound,
+    NoHomeDirectory,
 }
 
 impl From<reqwest::Error> for Error {
