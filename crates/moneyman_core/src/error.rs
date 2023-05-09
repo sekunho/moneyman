@@ -1,11 +1,21 @@
-#[derive(Debug)]
+use chrono::NaiveDate;
+use thiserror::Error;
+
+#[derive(Debug, Error)]
 pub enum Error {
+    #[error("failed to fetch ECB historical data")]
     HttpError(reqwest::Error),
+    #[error("failed to unzip ECB historical data archive")]
     ZipError(zip::result::ZipError),
+    #[error("unknown data store error")]
     DbError(rusqlite::Error),
+    #[error("unknown IO error")]
     IoError(std::io::Error),
+    #[error("")]
     MoneyError(rusty_money::MoneyError),
-    RateNotFound,
+    #[error("rate not found: {0} has no rate for {1}")]
+    RateNotFound(String, NaiveDate),
+    #[error("home directory does not exist")]
     NoHomeDirectory,
 }
 

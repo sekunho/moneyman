@@ -36,8 +36,12 @@ pub fn convert_on_date<'a>(
             rates.iter().for_each(|rate| exchange.set_rate(rate));
 
             let rate = match to {
-                iso::EUR => exchange.get_rate(from, iso::EUR).ok_or(Error::RateNotFound),
-                _ => exchange.get_rate(iso::EUR, to).ok_or(Error::RateNotFound),
+                iso::EUR => exchange
+                    .get_rate(from, iso::EUR)
+                    .ok_or(Error::RateNotFound(from.to_string(), on)),
+                _ => exchange
+                    .get_rate(iso::EUR, to)
+                    .ok_or(Error::RateNotFound(to.to_string(), on)),
             };
             let to_money = rate?.convert(from_amount)?;
 
@@ -51,12 +55,16 @@ pub fn convert_on_date<'a>(
             rates.iter().for_each(|rate| exchange.set_rate(rate));
 
             // Use EUR as the bridge between currencies
-            let from_curr_to_eur_rate = exchange.get_rate(from, iso::EUR).ok_or(Error::RateNotFound);
+            let from_curr_to_eur_rate = exchange
+                .get_rate(from, iso::EUR)
+                .ok_or(Error::RateNotFound(from.to_string(), on));
             let eur = from_curr_to_eur_rate?.convert(from_amount)?;
-            let from_eur_to_target_curr_rate = exchange.get_rate(iso::EUR, to).ok_or(Error::RateNotFound)?;
+            let from_eur_to_target_curr_rate = exchange
+                .get_rate(iso::EUR, to)
+                .ok_or(Error::RateNotFound(to.to_string(), on))?;
             let target_money = from_eur_to_target_curr_rate.convert(eur)?;
 
             Ok(Money::from_decimal(*(target_money.amount()), to))
-        },
+        }
     }
 }
