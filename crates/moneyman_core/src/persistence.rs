@@ -1,3 +1,5 @@
+use std::path::PathBuf;
+
 use chrono::NaiveDate;
 use rusqlite::{vtab::csvtab, Connection};
 use rust_decimal::Decimal;
@@ -10,11 +12,13 @@ use rusty_money::{
 use crate::error::Error;
 
 /// Finds the rates of the given currencies to one EUR. This will ignore EUR.
-pub(crate) fn find_rates_of_currencies(
-    currencies: Vec<&Currency>,
+pub(crate) fn find_rates_of_currencies<'c>(
+    data_dir: &PathBuf,
+    currencies: Vec<&'c Currency>,
     on: NaiveDate,
-) -> Result<Vec<ExchangeRate<Currency>>, Error> {
-    let conn = Connection::open("eurofxref-hist.db3").expect("failed conn");
+) -> Result<Vec<ExchangeRate<'c, Currency>>, Error> {
+    let db_path = data_dir.join("eurofxref-hist.db3");
+    let conn = Connection::open(db_path).expect("failed conn");
     let filtered_currencies: Vec<String> = currencies
         .iter()
         .filter_map(|c| {
@@ -57,10 +61,15 @@ pub(crate) fn find_rates_of_currencies(
 }
 
 /// Sets up an SQLite database with the exchange rate history
-pub fn setup_db() -> Result<(), rusqlite::Error> {
-    let conn = Connection::open("eurofxref-hist.db3")?;
+pub fn setup_db(data_dir: &PathBuf) -> Result<(), rusqlite::Error> {
+    // CSV file path
+    let csv_path = data_dir.join("eurofxref-hist.csv");
 
-    seed_db(&conn)?;
+    // DB file path
+    let db_path = data_dir.join("eurofxref-hist.db3");
+    let conn = Connection::open(db_path)?;
+
+    seed_db(csv_path, &conn)?;
     sqlite_and_its_dynamic_typing_what_a_good_idea_lol(&conn)?;
 
     Ok(())
@@ -86,11 +95,11 @@ fn sqlite_and_its_dynamic_typing_what_a_good_idea_lol(
 }
 
 /// Seeds the DB with the history of exchange rates
-fn seed_db(conn: &Connection) -> Result<(), rusqlite::Error> {
+fn seed_db(csv_path: PathBuf, conn: &Connection) -> Result<(), rusqlite::Error> {
     csvtab::load_module(conn)?;
 
     // FIXME: Remove file path hardcoding
-    let script = "
+    let script = format!("
         BEGIN;
 
         DROP TABLE IF EXISTS rates;
@@ -98,7 +107,7 @@ fn seed_db(conn: &Connection) -> Result<(), rusqlite::Error> {
 
         CREATE VIRTUAL TABLE vrates
             USING csv
-                ( filename=/home/sekun/.moneyman/eurofxref-hist.csv
+                ( filename={}
                 , header=yes
                 );
 
@@ -107,7 +116,7 @@ fn seed_db(conn: &Connection) -> Result<(), rusqlite::Error> {
         DROP TABLE vrates;
 
         COMMIT;
-    ";
+    ", csv_path.to_str().expect("Expected a UTF-8 path"));
 
-    conn.execute_batch(script)
+    conn.execute_batch(script.as_str())
 }

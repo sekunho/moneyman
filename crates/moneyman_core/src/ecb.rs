@@ -1,28 +1,32 @@
 use std::path::PathBuf;
 
 use bytes::Bytes;
-use reqwest::{blocking::{Client, Response}, header::CONTENT_TYPE};
+use reqwest::{
+    blocking::{Client, Response},
+    header::CONTENT_TYPE,
+};
 
-use crate::{Error, persistence};
+use crate::{persistence, Error};
 
-/// Syncs the currency exchange history from the ECB
-pub fn sync_ecb_history() -> Result<(), Error> {
-    let dir = PathBuf::from(DEFAULT_DATA_DIR);
-    download_latest_history(dir)?;
-    persistence::setup_db()?;
+const ECB_HISTORY_URL: &str = "https://www.ecb.europa.eu/stats/eurofxref/eurofxref-hist.zip";
+
+/// Syncs the local data files with the currency exchange history from the ECB.
+pub fn sync_ecb_history(data_dir: &PathBuf) -> Result<(), Error> {
+    if !data_dir.exists() {
+        std::fs::create_dir(data_dir)?;
+    }
+
+    download_latest_history(data_dir)?;
+    persistence::setup_db(data_dir)?;
 
     Ok(())
 }
 
-// FIXME: Remove file path hardcoding (maybe use `/var/lib/moneyman`?)
-const DEFAULT_DATA_DIR: &str = "/home/sekun/.moneyman/";
-
 // TODO: Refactor this mess cause this is only for experimenting
 /// Downloads and saves the latest forex history
-fn download_latest_history(dir: PathBuf) -> Result<(), Error> {
-    let url = "https://www.ecb.europa.eu/stats/eurofxref/eurofxref-hist.zip";
+fn download_latest_history(data_dir: &PathBuf) -> Result<(), Error> {
     let client = Client::new()
-        .get(url)
+        .get(ECB_HISTORY_URL)
         .header(CONTENT_TYPE, "application/zip");
 
     let res: Response = client.send()?;
@@ -30,12 +34,7 @@ fn download_latest_history(dir: PathBuf) -> Result<(), Error> {
     let reader = std::io::Cursor::new(content.as_ref());
     let mut zip = zip::ZipArchive::new(reader)?;
 
-    if !dir.exists() {
-        std::fs::create_dir(dir.clone())?;
-        zip.extract(dir)?;
-    } else {
-        zip.extract(dir)?;
-    }
+    zip.extract(data_dir)?;
 
     Ok(())
 }
