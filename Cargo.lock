@@ -885,6 +885,7 @@ dependencies = [
  "rust_decimal",
  "rust_decimal_macros",
  "rusty-money",
+ "thiserror",
  "zip",
 ]
 

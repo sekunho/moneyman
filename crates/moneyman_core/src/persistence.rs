@@ -35,29 +35,59 @@ pub(crate) fn find_rates_of_currencies<'c>(
         .prepare(format!("SELECT {selectable_columns} FROM rates WHERE date = ?1").as_ref())
         .expect("oh no");
 
-    let rates = stmt.query_row([on.to_string()], |row| {
-        let rates: Result<Vec<_>, _> = currencies
+    // FIXME: Refactor this spaghetti
+    stmt.query_row([on.to_string()], |row| {
+        let currs: Result<Vec<ExchangeRate<Currency>>, rusqlite::Error> = currencies
             .into_iter()
             .enumerate()
-            .fold(Vec::new(), |mut acc, (index, currency)| {
-                let rate: String = row.get(index).expect("failed to get row column");
-                // FIXME: This can fail to parse because ECB doesn't have the
-                // exchange rates of all of its listed currencies.
-                let rate = Decimal::from_str_exact(rate.as_ref()).expect("not decimal");
+            .fold(Vec::new(), |mut rates, (index, currency)| {
+                match row.get::<usize, String>(index) {
+                    Ok(rate) => {
+                        let (to_eur, from_eur) = parse_rate(currency, rate);
+                        rates.push(Ok(to_eur));
+                        rates.push(Ok(from_eur));
 
-                acc.push(ExchangeRate::new(currency, iso::EUR, dec!(1) / rate));
-                acc.push(ExchangeRate::new(iso::EUR, currency, rate));
+                        rates
+                    }
+                    Err(e) => {
+                        rates.push(Err(e));
 
-                acc
+                        rates
+                    }
+                }
             })
-            // Oh no why would I do this ;(
             .into_iter()
             .collect();
 
-        Ok(rates)
-    })?;
+        currs
+    })
+    .map_err(|e| match e {
+        rusqlite::Error::InvalidColumnType(num, col, rusqlite::types::Type::Null) => {
+            match col.as_str() {
+                "Date" => Error::DbError(rusqlite::Error::InvalidColumnType(
+                    num,
+                    col,
+                    rusqlite::types::Type::Null,
+                )),
+                currency_col => Error::RateNotFound(String::from(currency_col), on),
+            }
+        }
+        e => Error::DbError(e),
+    })
+}
 
-    rates.map_err(Error::MoneyError)
+/// Parses a currency rate into bidirectional exchange rates
+fn parse_rate<'c>(
+    currency: &'c Currency,
+    rate: String,
+) -> (ExchangeRate<'c, Currency>, ExchangeRate<'c, Currency>) {
+    let rate: Decimal =
+        Decimal::from_str_exact(rate.as_ref()).expect("Rate in local DB is not a decimal");
+
+    let to_eur = ExchangeRate::new(currency, iso::EUR, dec!(1) / rate).unwrap();
+    let from_eur = ExchangeRate::new(iso::EUR, currency, rate).unwrap();
+
+    (to_eur, from_eur)
 }
 
 /// Sets up an SQLite database with the exchange rate history
@@ -99,7 +129,8 @@ fn seed_db(csv_path: PathBuf, conn: &Connection) -> Result<(), rusqlite::Error> 
     csvtab::load_module(conn)?;
 
     // FIXME: Remove file path hardcoding
-    let script = format!("
+    let script = format!(
+        "
         BEGIN;
 
         DROP TABLE IF EXISTS rates;
@@ -116,7 +147,9 @@ fn seed_db(csv_path: PathBuf, conn: &Connection) -> Result<(), rusqlite::Error> 
         DROP TABLE vrates;
 
         COMMIT;
-    ", csv_path.to_str().expect("Expected a UTF-8 path"));
+    ",
+        csv_path.to_str().expect("Expected a UTF-8 path")
+    );
 
     conn.execute_batch(script.as_str())
 }
