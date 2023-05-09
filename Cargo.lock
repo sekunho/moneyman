@@ -880,7 +880,6 @@ version = "0.1.0"
 dependencies = [
  "bytes",
  "chrono",
- "dirs",
  "reqwest",
  "rusqlite",
  "rust_decimal",
