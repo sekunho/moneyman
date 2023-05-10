@@ -54,7 +54,6 @@ pub fn sync_ecb_history(data_dir: &PathBuf) -> Result<(), Error> {
     Ok(())
 }
 
-
 /// Downloads the latest ECB historical data, and unzips it to `data_dir`
 fn download_latest_history(data_dir: &PathBuf) -> Result<(), Error> {
     let client = Client::new()
@@ -80,7 +79,9 @@ mod tests {
     #[test]
     fn it_syncs_with_ecb_history() {
         let rand_str = Alphanumeric.sample_string(&mut rand::thread_rng(), 16);
-        let data_dir = PathBuf::new().join("/tmp").join(format!("moneyman_{}", rand_str));
+        let data_dir = PathBuf::new()
+            .join("/tmp")
+            .join(format!("moneyman_{}", rand_str));
 
         std::fs::create_dir(&data_dir).expect("failed to create test directory");
 

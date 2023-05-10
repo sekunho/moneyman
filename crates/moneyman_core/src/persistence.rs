@@ -1,4 +1,4 @@
-use std::path::{PathBuf, Path};
+use std::path::{Path, PathBuf};
 
 use chrono::NaiveDate;
 use rusqlite::{vtab::csvtab, Connection};
