@@ -38,3 +38,29 @@ fn download_latest_history(data_dir: &PathBuf) -> Result<(), Error> {
 
     Ok(())
 }
+
+#[cfg(test)]
+mod tests {
+    use chrono::NaiveDate;
+    use rust_decimal_macros::dec;
+    use rusty_money::{iso, Money};
+
+    use super::super::convert_on_date;
+    use super::*;
+
+    #[test]
+    fn it_syncs_with_ecb_history() {
+        let data_dir = std::env::temp_dir();
+
+        assert_eq!((), sync_ecb_history(&data_dir).unwrap());
+        assert!(data_dir.join("eurofxref-hist.csv").exists());
+        assert!(data_dir.join("eurofxref-hist.db3").exists());
+
+        let amount_in_eur = Money::from_decimal(dec!(1000), iso::EUR);
+        let date = NaiveDate::from_ymd_opt(2023, 05, 04).unwrap();
+        let amount_in_usd = convert_on_date(&data_dir, amount_in_eur, iso::USD, date).unwrap();
+        let expected_amount = Money::from_decimal(dec!(1000) * dec!(1.1074), iso::USD);
+
+        assert_eq!(expected_amount, amount_in_usd);
+    }
+}
