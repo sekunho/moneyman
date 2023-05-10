@@ -42,6 +42,7 @@ fn download_latest_history(data_dir: &PathBuf) -> Result<(), Error> {
 #[cfg(test)]
 mod tests {
     use chrono::NaiveDate;
+    use rand::distributions::{Alphanumeric, DistString};
     use rust_decimal_macros::dec;
     use rusty_money::{iso, Money};
 
@@ -50,7 +51,10 @@ mod tests {
 
     #[test]
     fn it_syncs_with_ecb_history() {
-        let data_dir = std::env::temp_dir();
+        let rand_str = Alphanumeric.sample_string(&mut rand::thread_rng(), 16);
+        let data_dir = std::env::temp_dir().join(format!("moneyman_{}", rand_str));
+
+        std::fs::create_dir(&data_dir).expect("failed to create test directory");
 
         assert_eq!((), sync_ecb_history(&data_dir).unwrap());
         assert!(data_dir.join("eurofxref-hist.csv").exists());

@@ -68,3 +68,48 @@ pub fn convert_on_date<'a>(
         }
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use chrono::NaiveDate;
+    use rand::distributions::{Alphanumeric, DistString};
+    use rust_decimal_macros::dec;
+    use rusty_money::{iso, Money};
+
+    use crate::{convert_on_date, sync_ecb_history};
+
+    #[test]
+    /// This should succeed since there's a rate on this date
+    fn it_converts_currencies_on_available_dates() {
+        let rand_str = Alphanumeric.sample_string(&mut rand::thread_rng(), 16);
+        let data_dir = dbg!(std::env::temp_dir().join(format!("moneyman_{}", rand_str)));
+
+        std::fs::create_dir(&data_dir).expect("failed to create test directory");
+
+        assert_eq!((), sync_ecb_history(&data_dir).unwrap());
+
+        let amount_in_eur = Money::from_decimal(dec!(1000), iso::EUR);
+        let date = NaiveDate::from_ymd_opt(2023, 05, 04).unwrap();
+        let amount_in_usd = convert_on_date(&data_dir, amount_in_eur, iso::USD, date).unwrap();
+        let expected_amount = Money::from_decimal(dec!(1000) * dec!(1.1074), iso::USD);
+
+        assert_eq!(expected_amount, amount_in_usd);
+    }
+
+    #[test]
+    /// Expect this to give an error since there's no fallback implementation
+    fn it_fails_to_convert_if_no_rate_on_given_date() {
+        let rand_str = Alphanumeric.sample_string(&mut rand::thread_rng(), 16);
+        let data_dir = std::env::temp_dir().join(format!("moneyman_{}", rand_str));
+
+        std::fs::create_dir(&data_dir).expect("failed to create test directory");
+
+        assert_eq!((), sync_ecb_history(&data_dir).unwrap());
+
+        let amount_in_eur = Money::from_decimal(dec!(1000), iso::EUR);
+        let date = NaiveDate::from_ymd_opt(2023, 05, 06).unwrap();
+        let result = convert_on_date(&data_dir, amount_in_eur, iso::USD, date);
+
+        assert!(result.is_err());
+    }
+}
