@@ -1,4 +1,4 @@
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 
 use chrono::NaiveDate;
 use rusqlite::{vtab::csvtab, Connection};
@@ -13,7 +13,7 @@ use crate::error::Error;
 
 /// Finds the rates of the given currencies to one EUR. This will ignore EUR.
 pub(crate) fn find_rates_of_currencies<'c>(
-    data_dir: &PathBuf,
+    data_dir: &Path,
     currencies: Vec<&'c Currency>,
     on: NaiveDate,
 ) -> Result<Vec<ExchangeRate<'c, Currency>>, Error> {
@@ -77,10 +77,10 @@ pub(crate) fn find_rates_of_currencies<'c>(
 }
 
 /// Parses a currency rate into bidirectional exchange rates
-fn parse_rate<'c>(
-    currency: &'c Currency,
+fn parse_rate(
+    currency: &Currency,
     rate: String,
-) -> (ExchangeRate<'c, Currency>, ExchangeRate<'c, Currency>) {
+) -> (ExchangeRate<Currency>, ExchangeRate<Currency>) {
     let rate: Decimal =
         Decimal::from_str_exact(rate.as_ref()).expect("Rate in local DB is not a decimal");
 
@@ -91,7 +91,7 @@ fn parse_rate<'c>(
 }
 
 /// Sets up an SQLite database with the exchange rate history
-pub fn setup_db(data_dir: &PathBuf) -> Result<(), rusqlite::Error> {
+pub fn setup_db(data_dir: &Path) -> Result<(), Error> {
     // CSV file path
     let csv_path = data_dir.join("eurofxref-hist.csv");
 
@@ -152,4 +152,29 @@ fn seed_db(csv_path: PathBuf, conn: &Connection) -> Result<(), rusqlite::Error> 
     );
 
     conn.execute_batch(script.as_str())
+}
+
+#[cfg(test)]
+mod tests {
+    use rust_decimal_macros::dec;
+    use rusty_money::{iso, ExchangeRate};
+
+    use super::parse_rate;
+
+    #[test]
+    fn it_parses_rate_into_bidirectional_rates() {
+        let (rate1, rate2) = parse_rate(iso::USD, "1.1037".to_string());
+        let expected1 = ExchangeRate::new(iso::USD, iso::EUR, dec!(1) / dec!(1.1037)).unwrap();
+        let expected2 = ExchangeRate::new(iso::EUR, iso::USD, dec!(1.1037)).unwrap();
+
+        assert_eq!(rate1, expected1);
+        assert_eq!(rate2, expected2);
+    }
+
+    #[test]
+    fn it_panics_if_rate_is_invalid_when_parsing() {
+        let result = std::panic::catch_unwind(|| parse_rate(iso::USD, "1a.1037".to_string()));
+
+        assert!(result.is_err());
+    }
 }

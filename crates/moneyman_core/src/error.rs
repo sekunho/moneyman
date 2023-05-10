@@ -3,10 +3,6 @@ use thiserror::Error;
 
 #[derive(Debug, Error)]
 pub enum Error {
-    #[error("failed to fetch ECB historical data")]
-    HttpError(reqwest::Error),
-    #[error("failed to unzip ECB historical data archive")]
-    ZipError(zip::result::ZipError),
     #[error("unknown data store error")]
     DbError(rusqlite::Error),
     #[error("unknown IO error")]
@@ -17,18 +13,6 @@ pub enum Error {
     RateNotFound(String, NaiveDate),
     #[error("home directory does not exist")]
     NoHomeDirectory,
-}
-
-impl From<reqwest::Error> for Error {
-    fn from(err: reqwest::Error) -> Self {
-        Error::HttpError(err)
-    }
-}
-
-impl From<zip::result::ZipError> for Error {
-    fn from(err: zip::result::ZipError) -> Self {
-        Error::ZipError(err)
-    }
 }
 
 impl From<rusqlite::Error> for Error {

@@ -2,12 +2,8 @@
 name = "moneyman_core"
 version = "0.1.0"
 edition = "2021"
-include = [ "**/*.csv" ]
 
 [dependencies]
-reqwest = { workspace = true }
-bytes = { workspace = true }
-zip = { workspace = true }
 rusty-money = { workspace = true }
 rust_decimal_macros = { workspace = true }
 rust_decimal = { workspace = true }

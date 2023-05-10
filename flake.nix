@@ -31,7 +31,7 @@
             inherit pname version;
 
             src = ./.;
-            doCheck = true;
+            doCheck = false;
             nativeBuildInputs = with pkgs; [ openssl pkg-config ];
           };
 
@@ -39,7 +39,7 @@
             inherit pname version;
 
             src = ./.;
-            doCheck = true;
+            doCheck = false;
             nativeBuildInputs = with pkgs; [ pkgsStatic.stdenv.cc openssl pkg-config ];
             buildInputs = [ ];
 
@@ -49,8 +49,20 @@
         };
       };
 
-      devShells.${system}.default =
-        let
+      devShells.${system} = {
+        ci = pkgs.mkShell {
+          buildInputs = [
+            fenix'.stable.rustc
+            fenix'.stable.cargo
+            fenix'.stable.clippy
+            fenix'.stable.rustfmt
+
+            pkgs.openssl
+            pkgs.pkg-config
+          ];
+        };
+
+        default = let
           rustPackages = with fenix'.stable; [
             rustc
             cargo
@@ -65,5 +77,6 @@
         in pkgs.mkShell {
           buildInputs = rustPackages ++ nixPackages ++ misc;
         };
+      };
     };
 }

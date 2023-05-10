@@ -6,14 +6,10 @@ use rusty_money::{iso, Money};
 
 fn main() {
     let data_dir: PathBuf = dirs::home_dir()
-        .and_then(|mut home_dir| {
-            home_dir.push(".moneyman");
-
-            Some(home_dir)
-        })
+        .map(|home_dir| home_dir.join(".moneyman"))
         .expect("need a home directory");
 
-    moneyman_core::sync_ecb_history(&data_dir).expect("failed ze sync");
+    moneyman_sync::sync_ecb_history(&data_dir).expect("failed ze sync");
 
     let amount_in_usd = Money::from_decimal(dec!(6500), iso::USD);
     let amount_in_eur = Money::from_decimal(dec!(1000), iso::EUR);
@@ -21,7 +17,12 @@ fn main() {
     let date = NaiveDate::from_ymd_opt(2023, 5, 4).expect("ok date");
 
     // Convert 6,500.00 USD to EUR
-    let _ = dbg!(moneyman_core::convert_on_date(&data_dir, amount_in_usd.clone(), iso::EUR, date));
+    let _ = dbg!(moneyman_core::convert_on_date(
+        &data_dir,
+        amount_in_usd.clone(),
+        iso::EUR,
+        date
+    ));
 
     // Convert 1,000.00 EUR to JPY
     let _ = moneyman_core::convert_on_date(&data_dir, amount_in_eur.clone(), iso::JPY, date);
