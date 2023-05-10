@@ -144,6 +144,8 @@ fn seed_db(csv_path: PathBuf, conn: &Connection) -> Result<(), rusqlite::Error> 
 
         CREATE TABLE rates AS SELECT * FROM vrates;
 
+        CREATE UNIQUE INDEX date_index ON rates(Date);
+
         DROP TABLE vrates;
 
         COMMIT;

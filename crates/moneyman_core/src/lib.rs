@@ -82,7 +82,11 @@ mod tests {
     #[test]
     /// This should succeed since there's a rate on this date
     fn it_converts_currencies_on_available_dates() {
-        let data_dir = dbg!(PathBuf::new().join("..").join("..").join("test_data"));
+        let data_dir = dbg!(PathBuf::new()
+            .join("..")
+            .join("..")
+            .join("test_data")
+            .join("indexed"));
 
         assert!(data_dir.exists());
 
@@ -97,7 +101,11 @@ mod tests {
     #[test]
     /// Expect this to give an error since there's no fallback implementation
     fn it_fails_to_convert_if_no_rate_on_given_date() {
-        let data_dir = dbg!(PathBuf::new().join("..").join("..").join("test_data"));
+        let data_dir = dbg!(PathBuf::new()
+            .join("..")
+            .join("..")
+            .join("test_data")
+            .join("indexed"));
 
         assert!(data_dir.exists());
 
