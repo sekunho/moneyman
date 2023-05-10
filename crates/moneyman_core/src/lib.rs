@@ -7,8 +7,8 @@ use rusty_money::{
     Money,
 };
 
-pub use crate::ecb::sync_ecb_history;
 pub use crate::error::Error;
+pub use crate::persistence::setup_db;
 
 pub(crate) mod ecb;
 pub(crate) mod error;
@@ -71,22 +71,20 @@ pub fn convert_on_date<'a>(
 
 #[cfg(test)]
 mod tests {
+    use std::path::PathBuf;
+
     use chrono::NaiveDate;
-    use rand::distributions::{Alphanumeric, DistString};
     use rust_decimal_macros::dec;
     use rusty_money::{iso, Money};
 
-    use crate::{convert_on_date, sync_ecb_history};
+    use crate::{convert_on_date, Error};
 
     #[test]
     /// This should succeed since there's a rate on this date
     fn it_converts_currencies_on_available_dates() {
-        let rand_str = Alphanumeric.sample_string(&mut rand::thread_rng(), 16);
-        let data_dir = dbg!(std::env::temp_dir().join(format!("moneyman_{}", rand_str)));
+        let data_dir = dbg!(PathBuf::new().join("..").join("..").join("test_data"));
 
-        std::fs::create_dir(&data_dir).expect("failed to create test directory");
-
-        assert_eq!((), sync_ecb_history(&data_dir).unwrap());
+        assert!(data_dir.exists());
 
         let amount_in_eur = Money::from_decimal(dec!(1000), iso::EUR);
         let date = NaiveDate::from_ymd_opt(2023, 05, 04).unwrap();
@@ -99,17 +97,17 @@ mod tests {
     #[test]
     /// Expect this to give an error since there's no fallback implementation
     fn it_fails_to_convert_if_no_rate_on_given_date() {
-        let rand_str = Alphanumeric.sample_string(&mut rand::thread_rng(), 16);
-        let data_dir = std::env::temp_dir().join(format!("moneyman_{}", rand_str));
+        let data_dir = dbg!(PathBuf::new().join("..").join("..").join("test_data"));
 
-        std::fs::create_dir(&data_dir).expect("failed to create test directory");
-
-        assert_eq!((), sync_ecb_history(&data_dir).unwrap());
+        assert!(data_dir.exists());
 
         let amount_in_eur = Money::from_decimal(dec!(1000), iso::EUR);
         let date = NaiveDate::from_ymd_opt(2023, 05, 06).unwrap();
-        let result = convert_on_date(&data_dir, amount_in_eur, iso::USD, date);
 
-        assert!(result.is_err());
+        match convert_on_date(&data_dir, amount_in_eur, iso::USD, date) {
+            Ok(_) => panic!("expected to fail"),
+            Err(Error::DbError(rusqlite::Error::QueryReturnedNoRows)) => (),
+            Err(_) => panic!("expected db not to have any results, not fail cause of other cases"),
+        }
     }
 }

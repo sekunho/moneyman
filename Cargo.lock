@@ -869,6 +869,7 @@ dependencies = [
  "chrono",
  "dirs",
  "moneyman_core",
+ "moneyman_sync",
  "rust_decimal",
  "rust_decimal_macros",
  "rusty-money",
@@ -878,14 +879,22 @@ dependencies = [
 name = "moneyman_core"
 version = "0.1.0"
 dependencies = [
- "bytes",
  "chrono",
- "rand",
- "reqwest",
  "rusqlite",
  "rust_decimal",
  "rust_decimal_macros",
  "rusty-money",
+ "thiserror",
+]
+
+[[package]]
+name = "moneyman_sync"
+version = "0.1.0"
+dependencies = [
+ "bytes",
+ "moneyman_core",
+ "rand",
+ "reqwest",
  "thiserror",
  "zip",
 ]

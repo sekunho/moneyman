@@ -13,7 +13,7 @@ fn main() {
         })
         .expect("need a home directory");
 
-    moneyman_core::sync_ecb_history(&data_dir).expect("failed ze sync");
+    moneyman_sync::sync_ecb_history(&data_dir).expect("failed ze sync");
 
     let amount_in_usd = Money::from_decimal(dec!(6500), iso::USD);
     let amount_in_eur = Money::from_decimal(dec!(1000), iso::EUR);

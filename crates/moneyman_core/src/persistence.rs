@@ -91,7 +91,7 @@ fn parse_rate<'c>(
 }
 
 /// Sets up an SQLite database with the exchange rate history
-pub fn setup_db(data_dir: &PathBuf) -> Result<(), rusqlite::Error> {
+pub fn setup_db(data_dir: &PathBuf) -> Result<(), Error> {
     // CSV file path
     let csv_path = data_dir.join("eurofxref-hist.csv");
 
