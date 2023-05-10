@@ -19,7 +19,7 @@ fn main() {
 
     // Fetches the historical data from European Central Bank, and saves it
     // in the data directory.
-    moneyman_core::sync_ecb_history(&data_dir).expect("failed ze sync");
+    moneyman_sync::sync_ecb_history(&data_dir).expect("failed ze sync");
 
     let amount_in_usd = Money::from_decimal(dec!(6500), iso::USD);
     let date = NaiveDate::from_ymd_opt(2023, 5, 4).expect("ok date");
