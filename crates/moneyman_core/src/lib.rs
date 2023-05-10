@@ -1,4 +1,4 @@
-use std::path::PathBuf;
+use std::path::Path;
 
 use chrono::NaiveDate;
 use rusty_money::Exchange;
@@ -16,7 +16,7 @@ pub(crate) mod persistence;
 
 /// Converts money to a given currency.
 pub fn convert_on_date<'a>(
-    data_dir: &PathBuf,
+    data_dir: &Path,
     from_amount: Money<'a, Currency>,
     to: &'a Currency,
     on: NaiveDate,
@@ -30,7 +30,7 @@ pub fn convert_on_date<'a>(
                 iso::EUR => Vec::from([from]),
                 _ => Vec::from([to]),
             };
-            let rates = persistence::find_rates_of_currencies(&data_dir, currencies, on)?;
+            let rates = persistence::find_rates_of_currencies(data_dir, currencies, on)?;
             let mut exchange = Exchange::new();
 
             rates.iter().for_each(|rate| exchange.set_rate(rate));
@@ -49,7 +49,7 @@ pub fn convert_on_date<'a>(
         }
         (from, to) => {
             let currencies = Vec::from([from, to]);
-            let rates = persistence::find_rates_of_currencies(&data_dir, currencies, on)?;
+            let rates = persistence::find_rates_of_currencies(data_dir, currencies, on)?;
             let mut exchange = Exchange::new();
 
             rates.iter().for_each(|rate| exchange.set_rate(rate));

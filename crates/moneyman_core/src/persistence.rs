@@ -1,4 +1,4 @@
-use std::path::PathBuf;
+use std::path::{PathBuf, Path};
 
 use chrono::NaiveDate;
 use rusqlite::{vtab::csvtab, Connection};
@@ -13,7 +13,7 @@ use crate::error::Error;
 
 /// Finds the rates of the given currencies to one EUR. This will ignore EUR.
 pub(crate) fn find_rates_of_currencies<'c>(
-    data_dir: &PathBuf,
+    data_dir: &Path,
     currencies: Vec<&'c Currency>,
     on: NaiveDate,
 ) -> Result<Vec<ExchangeRate<'c, Currency>>, Error> {
@@ -77,10 +77,10 @@ pub(crate) fn find_rates_of_currencies<'c>(
 }
 
 /// Parses a currency rate into bidirectional exchange rates
-fn parse_rate<'c>(
-    currency: &'c Currency,
+fn parse_rate(
+    currency: &Currency,
     rate: String,
-) -> (ExchangeRate<'c, Currency>, ExchangeRate<'c, Currency>) {
+) -> (ExchangeRate<Currency>, ExchangeRate<Currency>) {
     let rate: Decimal =
         Decimal::from_str_exact(rate.as_ref()).expect("Rate in local DB is not a decimal");
 
@@ -91,7 +91,7 @@ fn parse_rate<'c>(
 }
 
 /// Sets up an SQLite database with the exchange rate history
-pub fn setup_db(data_dir: &PathBuf) -> Result<(), Error> {
+pub fn setup_db(data_dir: &Path) -> Result<(), Error> {
     // CSV file path
     let csv_path = data_dir.join("eurofxref-hist.csv");
 
