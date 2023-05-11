@@ -1059,13 +1059,17 @@ dependencies = [
 name = "moneyman_core"
 version = "0.1.0"
 dependencies = [
+ "bytes",
  "chrono",
  "criterion",
+ "rand",
+ "reqwest",
  "rusqlite",
  "rust_decimal",
  "rust_decimal_macros",
  "rusty-money",
  "thiserror",
+ "zip",
 ]
 
 [[package]]
