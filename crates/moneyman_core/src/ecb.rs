@@ -62,6 +62,5 @@ mod tests {
 
         assert_eq!((), download_latest_history(&data_dir).unwrap());
         assert!(data_dir.join("eurofxref-hist.csv").exists());
-        assert!(data_dir.join("eurofxref-hist.db3").exists());
     }
 }

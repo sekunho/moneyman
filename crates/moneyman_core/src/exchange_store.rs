@@ -36,8 +36,8 @@ pub enum InitError {
 pub enum ConversionError {
     #[error("contains malformed data")]
     MalformedExchangeStore,
-    #[error("could not find the relevant exchange rate for {currency} on date {date}")]
-    NoExchangeRate { currency: Currency, date: NaiveDate },
+    #[error("could not find the relevant exchange rate on date {0}")]
+    NoExchangeRate(NaiveDate),
     #[error("not a valid currency")]
     InvalidCurrency,
 }
@@ -86,7 +86,12 @@ impl ExchangeStore {
                     _ => Vec::from([to]),
                 };
                 let rates = persistence::find_rates_of_currencies(&self.conn, currencies, on_date)
-                    .map_err(|_| ConversionError::MalformedExchangeStore)?;
+                    .map_err(|err| match err {
+                        rusqlite::Error::QueryReturnedNoRows => {
+                            ConversionError::NoExchangeRate(on_date)
+                        }
+                        _ => ConversionError::MalformedExchangeStore,
+                    })?;
                 let mut exchange = Exchange::new();
 
                 rates.iter().for_each(|rate| exchange.set_rate(rate));
@@ -95,10 +100,7 @@ impl ExchangeStore {
                     iso::EUR => exchange.get_rate(from, iso::EUR),
                     _ => exchange.get_rate(iso::EUR, to),
                 };
-                let rate = rate.ok_or(ConversionError::NoExchangeRate {
-                    currency: *from,
-                    date: on_date,
-                })?;
+                let rate = rate.ok_or(ConversionError::NoExchangeRate(on_date))?;
                 let to_money = rate
                     .convert(from_amount)
                     .map_err(|_| ConversionError::InvalidCurrency)?;
@@ -108,29 +110,26 @@ impl ExchangeStore {
             (from, to) => {
                 let currencies = Vec::from([from, to]);
                 let rates = persistence::find_rates_of_currencies(&self.conn, currencies, on_date)
-                    .map_err(|_| ConversionError::MalformedExchangeStore)?;
+                    .map_err(|err| match err {
+                        rusqlite::Error::QueryReturnedNoRows => {
+                            ConversionError::NoExchangeRate(on_date)
+                        }
+                        _ => ConversionError::MalformedExchangeStore,
+                    })?;
                 let mut exchange = Exchange::new();
 
                 rates.iter().for_each(|rate| exchange.set_rate(rate));
 
                 // Use EUR as the bridge between currencies
-                let from_curr_to_eur_rate =
-                    exchange
-                        .get_rate(from, iso::EUR)
-                        .ok_or(ConversionError::NoExchangeRate {
-                            currency: *from,
-                            date: on_date,
-                        })?;
+                let from_curr_to_eur_rate = exchange
+                    .get_rate(from, iso::EUR)
+                    .ok_or(ConversionError::NoExchangeRate(on_date))?;
                 let eur = from_curr_to_eur_rate
                     .convert(from_amount)
                     .map_err(|_| ConversionError::InvalidCurrency)?;
-                let from_eur_to_target_curr_rate =
-                    exchange
-                        .get_rate(iso::EUR, to)
-                        .ok_or(ConversionError::NoExchangeRate {
-                            currency: *from,
-                            date: on_date,
-                        })?;
+                let from_eur_to_target_curr_rate = exchange
+                    .get_rate(iso::EUR, to)
+                    .ok_or(ConversionError::NoExchangeRate(on_date))?;
                 let target_money = from_eur_to_target_curr_rate
                     .convert(eur)
                     .map_err(|_| ConversionError::InvalidCurrency)?;
@@ -212,7 +211,7 @@ mod tests {
 
         assert!(data_dir.exists());
 
-        let store = ExchangeStore::sync(data_dir).unwrap();
+        let store = ExchangeStore::open(data_dir).unwrap();
         let amount_in_eur = Money::from_decimal(dec!(1000), iso::EUR);
         let date = NaiveDate::from_ymd_opt(2023, 05, 04).unwrap();
         let amount_in_usd = store
@@ -234,11 +233,11 @@ mod tests {
 
         assert!(data_dir.exists());
 
-        let store = ExchangeStore::sync(data_dir).unwrap();
+        let store = ExchangeStore::open(data_dir).unwrap();
         let amount_in_eur = Money::from_decimal(dec!(1000), iso::EUR);
         let date = NaiveDate::from_ymd_opt(2023, 05, 06).unwrap();
 
-        match store.convert_on_date(amount_in_eur, iso::USD, date) {
+        match dbg!(store.convert_on_date(amount_in_eur, iso::USD, date)) {
             Ok(_) => panic!("expected to fail"),
             Err(ConversionError::NoExchangeRate { .. }) => (),
             Err(_) => panic!("expected db not to have any results, not fail cause of other cases"),
