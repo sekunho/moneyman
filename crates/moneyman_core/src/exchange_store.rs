@@ -195,10 +195,25 @@ mod tests {
     use std::path::PathBuf;
 
     use chrono::NaiveDate;
+    use rand::distributions::{Alphanumeric, DistString};
     use rust_decimal_macros::dec;
     use rusty_money::{iso, Money};
 
     use crate::exchange_store::{ConversionError, ExchangeStore};
+
+    #[test]
+    fn it_syncs_with_ecb() {
+        let rand_str = Alphanumeric.sample_string(&mut rand::thread_rng(), 16);
+        let data_dir = PathBuf::new()
+            .join("/tmp")
+            .join(format!("moneyman_{}", rand_str));
+
+        std::fs::create_dir(&data_dir).expect("failed to create test directory");
+
+        ExchangeStore::sync(data_dir.clone()).unwrap();
+
+        assert!(data_dir.join("eurofxref-hist.db3").exists());
+    }
 
     #[test]
     /// This should succeed since there's a rate on this date

@@ -52,7 +52,7 @@ mod tests {
     use super::*;
 
     #[test]
-    fn it_syncs_with_ecb_history() {
+    fn it_downloads_ecb_history() {
         let rand_str = Alphanumeric.sample_string(&mut rand::thread_rng(), 16);
         let data_dir = PathBuf::new()
             .join("/tmp")
