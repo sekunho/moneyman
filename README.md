@@ -19,15 +19,16 @@ fn main() {
 
     // Fetches the historical data from European Central Bank, and saves it
     // in the data directory.
-    moneyman_sync::sync_ecb_history(&data_dir).expect("failed ze sync");
+    moneyman_sync::sync_ecb_history(data_dir).expect("failed ze sync");
 
     let amount_in_usd = Money::from_decimal(dec!(6500), iso::USD);
     let date = NaiveDate::from_ymd_opt(2023, 5, 4).expect("ok date");
 
     // Converts 6,500.00 USD to EUR
-    let actual = moneyman_core::convert_on_date(&data_dir, amount_in_usd, iso::EUR, date).unwrap();
+    let actual = moneyman_core::convert_on_date(data_dir, amount_in_usd, iso::EUR, date).unwrap();
     let expected = Money::from_decimal(dec!(5869.6044789597254831135994221), iso::EUR);
 
+    // Shouldn't explode? :)
     assert_eq!(actual, expected);
 }
 ```

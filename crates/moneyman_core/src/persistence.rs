@@ -128,7 +128,6 @@ fn sqlite_and_its_dynamic_typing_what_a_good_idea_lol(
 fn seed_db(csv_path: PathBuf, conn: &Connection) -> Result<(), rusqlite::Error> {
     csvtab::load_module(conn)?;
 
-    // FIXME: Remove file path hardcoding
     let script = format!(
         "
         BEGIN;
