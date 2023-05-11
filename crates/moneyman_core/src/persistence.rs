@@ -1,7 +1,5 @@
-use std::path::{Path, PathBuf};
-
 use chrono::NaiveDate;
-use rusqlite::{vtab::csvtab, Connection};
+use rusqlite::Connection;
 use rust_decimal::Decimal;
 use rust_decimal_macros::dec;
 use rusty_money::{
@@ -9,16 +7,12 @@ use rusty_money::{
     ExchangeRate,
 };
 
-use crate::error::Error;
-
 /// Finds the rates of the given currencies to one EUR. This will ignore EUR.
 pub(crate) fn find_rates_of_currencies<'c>(
-    data_dir: &Path,
+    conn: &Connection,
     currencies: Vec<&'c Currency>,
     on: NaiveDate,
-) -> Result<Vec<ExchangeRate<'c, Currency>>, Error> {
-    let db_path = data_dir.join("eurofxref-hist.db3");
-    let conn = Connection::open(db_path).expect("failed conn");
+) -> Result<Vec<ExchangeRate<'c, Currency>>, rusqlite::Error> {
     let filtered_currencies: Vec<String> = currencies
         .iter()
         .filter_map(|c| {
@@ -61,19 +55,6 @@ pub(crate) fn find_rates_of_currencies<'c>(
 
         currs
     })
-    .map_err(|e| match e {
-        rusqlite::Error::InvalidColumnType(num, col, rusqlite::types::Type::Null) => {
-            match col.as_str() {
-                "Date" => Error::DbError(rusqlite::Error::InvalidColumnType(
-                    num,
-                    col,
-                    rusqlite::types::Type::Null,
-                )),
-                currency_col => Error::RateNotFound(String::from(currency_col), on),
-            }
-        }
-        e => Error::DbError(e),
-    })
 }
 
 /// Parses a currency rate into bidirectional exchange rates
@@ -88,71 +69,6 @@ fn parse_rate(
     let from_eur = ExchangeRate::new(iso::EUR, currency, rate).unwrap();
 
     (to_eur, from_eur)
-}
-
-/// Sets up an SQLite database with the exchange rate history
-pub fn setup_db(data_dir: &Path) -> Result<(), Error> {
-    // CSV file path
-    let csv_path = data_dir.join("eurofxref-hist.csv");
-
-    // DB file path
-    let db_path = data_dir.join("eurofxref-hist.db3");
-    let conn = Connection::open(db_path)?;
-
-    seed_db(csv_path, &conn)?;
-    sqlite_and_its_dynamic_typing_what_a_good_idea_lol(&conn)?;
-
-    Ok(())
-}
-
-/// Sets rows with "N/A" to actual NULL values
-fn sqlite_and_its_dynamic_typing_what_a_good_idea_lol(
-    conn: &Connection,
-) -> Result<(), rusqlite::Error> {
-    let currencies = [
-        "USD", "JPY", "BGN", "CYP", "CZK", "DKK", "EEK", "GBP", "HUF", "LTL", "LVL", "MTL", "PLN",
-        "ROL", "RON", "SEK", "SIT", "SKK", "CHF", "ISK", "NOK", "HRK", "RUB", "TRL", "TRY", "AUD",
-        "BRL", "CAD", "CNY", "HKD", "IDR", "ILS", "INR", "KRW", "MXN", "MYR", "NZD", "PHP", "SGD",
-        "THB", "ZAR",
-    ];
-
-    let statements = currencies
-        .map(|c| format!("UPDATE rates SET {c} = null WHERE {c} = 'N/A';"))
-        .join("\n");
-
-    let statements = format!("BEGIN; \n{statements}\nCOMMIT;");
-    (*conn).execute_batch(statements.as_ref())
-}
-
-/// Seeds the DB with the history of exchange rates
-fn seed_db(csv_path: PathBuf, conn: &Connection) -> Result<(), rusqlite::Error> {
-    csvtab::load_module(conn)?;
-
-    let script = format!(
-        "
-        BEGIN;
-
-        DROP TABLE IF EXISTS rates;
-        DROP TABLE IF EXISTS vrates;
-
-        CREATE VIRTUAL TABLE vrates
-            USING csv
-                ( filename={}
-                , header=yes
-                );
-
-        CREATE TABLE rates AS SELECT * FROM vrates;
-
-        CREATE UNIQUE INDEX date_index ON rates(Date);
-
-        DROP TABLE vrates;
-
-        COMMIT;
-    ",
-        csv_path.to_str().expect("Expected a UTF-8 path")
-    );
-
-    conn.execute_batch(script.as_str())
 }
 
 #[cfg(test)]

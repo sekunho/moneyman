@@ -9,7 +9,7 @@ fn main() {
         .map(|home_dir| home_dir.join(".moneyman"))
         .expect("need a home directory");
 
-    moneyman_sync::sync_ecb_history(&data_dir).expect("failed ze sync");
+    let store = moneyman_core::ExchangeStore::sync(data_dir).expect("failed ze sync");
 
     let amount_in_usd = Money::from_decimal(dec!(6500), iso::USD);
     let amount_in_eur = Money::from_decimal(dec!(1000), iso::EUR);
@@ -17,28 +17,15 @@ fn main() {
     let date = NaiveDate::from_ymd_opt(2023, 5, 4).expect("ok date");
 
     // Convert 6,500.00 USD to EUR
-    let _ = dbg!(moneyman_core::convert_on_date(
-        &data_dir,
-        amount_in_usd.clone(),
-        iso::EUR,
-        date
-    ));
+    let _ = dbg!(store.convert_on_date(amount_in_usd.clone(), iso::EUR, date));
 
     // Convert 1,000.00 EUR to JPY
-    let _ = moneyman_core::convert_on_date(&data_dir, amount_in_eur.clone(), iso::JPY, date);
+    let _ = store.convert_on_date(amount_in_eur.clone(), iso::JPY, date);
 
     // Convert 500.00 USD to JPY
-    let _ = dbg!(moneyman_core::convert_on_date(
-        &data_dir,
-        amount_in_usd,
-        iso::JPY,
-        date
-    ));
+    let _ = dbg!(store.convert_on_date(amount_in_usd, iso::JPY, date));
 
     // Convert EUR to BRL on a date with no historical data
     let date = NaiveDate::from_ymd_opt(2007, 12, 31).expect("ok date");
-    let _ = dbg!(
-        "{}",
-        moneyman_core::convert_on_date(&data_dir, amount_in_eur, iso::BRL, date)
-    );
+    let _ = dbg!("{}", store.convert_on_date(amount_in_eur, iso::BRL, date));
 }

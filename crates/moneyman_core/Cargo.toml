@@ -10,9 +10,13 @@ rust_decimal = { workspace = true }
 chrono = { workspace = true }
 rusqlite = { workspace = true }
 thiserror = { workspace = true }
+reqwest = { workspace = true }
+bytes = { workspace = true }
+zip = { workspace = true }
 
 [dev-dependencies]
 criterion = { version = "0.4", features = [ "html_reports" ] }
+rand = "0.8"
 
 [[bench]]
 name = "convert"
