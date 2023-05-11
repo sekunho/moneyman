@@ -64,7 +64,7 @@ pub(crate) fn find_rates_of_currencies<'c>(
     .map_err(|e| match e {
         rusqlite::Error::InvalidColumnType(num, col, rusqlite::types::Type::Null) => {
             match col.as_str() {
-                "Date" => Error::DbError(rusqlite::Error::InvalidColumnType(
+                "Date" => Error::Db(rusqlite::Error::InvalidColumnType(
                     num,
                     col,
                     rusqlite::types::Type::Null,
@@ -72,7 +72,7 @@ pub(crate) fn find_rates_of_currencies<'c>(
                 currency_col => Error::RateNotFound(String::from(currency_col), on),
             }
         }
-        e => Error::DbError(e),
+        e => Error::Db(e),
     })
 }
 

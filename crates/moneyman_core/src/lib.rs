@@ -114,7 +114,7 @@ mod tests {
 
         match convert_on_date(&data_dir, amount_in_eur, iso::USD, date) {
             Ok(_) => panic!("expected to fail"),
-            Err(Error::DbError(rusqlite::Error::QueryReturnedNoRows)) => (),
+            Err(Error::Db(rusqlite::Error::QueryReturnedNoRows)) => (),
             Err(_) => panic!("expected db not to have any results, not fail cause of other cases"),
         }
     }

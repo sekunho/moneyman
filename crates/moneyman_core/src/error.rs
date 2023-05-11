@@ -4,11 +4,11 @@ use thiserror::Error;
 #[derive(Debug, Error)]
 pub enum Error {
     #[error("unknown data store error")]
-    DbError(rusqlite::Error),
+    Db(rusqlite::Error),
     #[error("unknown IO error")]
-    IoError(std::io::Error),
+    Io(std::io::Error),
     #[error("")]
-    MoneyError(rusty_money::MoneyError),
+    Money(rusty_money::MoneyError),
     #[error("rate not found: {0} has no rate for {1}")]
     RateNotFound(String, NaiveDate),
     #[error("home directory does not exist")]
@@ -17,18 +17,18 @@ pub enum Error {
 
 impl From<rusqlite::Error> for Error {
     fn from(err: rusqlite::Error) -> Self {
-        Error::DbError(err)
+        Error::Db(err)
     }
 }
 
 impl From<std::io::Error> for Error {
     fn from(err: std::io::Error) -> Self {
-        Error::IoError(err)
+        Error::Io(err)
     }
 }
 
 impl From<rusty_money::MoneyError> for Error {
     fn from(err: rusty_money::MoneyError) -> Self {
-        Error::MoneyError(err)
+        Error::Money(err)
     }
 }

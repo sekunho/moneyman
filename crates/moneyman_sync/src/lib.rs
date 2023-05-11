@@ -9,34 +9,34 @@ use reqwest::{
 #[derive(Debug, thiserror::Error)]
 pub enum Error {
     #[error("oh no")]
-    MoneymanCoreError(moneyman_core::Error),
+    MoneymanCore(moneyman_core::Error),
     #[error("failed to fetch historical ECB data")]
-    HttpError(reqwest::Error),
+    Http(reqwest::Error),
     #[error("failed to unzip ECB archive")]
-    ZipError(zip::result::ZipError),
+    Zip(zip::result::ZipError),
 }
 
 impl From<moneyman_core::Error> for Error {
     fn from(err: moneyman_core::Error) -> Self {
-        Error::MoneymanCoreError(err)
+        Error::MoneymanCore(err)
     }
 }
 
 impl From<std::io::Error> for Error {
     fn from(err: std::io::Error) -> Self {
-        Error::MoneymanCoreError(moneyman_core::Error::IoError(err))
+        Error::MoneymanCore(moneyman_core::Error::Io(err))
     }
 }
 
 impl From<reqwest::Error> for Error {
     fn from(err: reqwest::Error) -> Self {
-        Error::HttpError(err)
+        Error::Http(err)
     }
 }
 
 impl From<zip::result::ZipError> for Error {
     fn from(err: zip::result::ZipError) -> Self {
-        Error::ZipError(err)
+        Error::Zip(err)
     }
 }
 
