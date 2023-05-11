@@ -35,6 +35,9 @@
             nativeBuildInputs = with pkgs; [ openssl pkg-config ];
           };
 
+          # FIXME: This is broken atm. I wouldn't use this cause it won't even
+          # compile due to it trying to dynamically link something musl doesn't
+          # apparently have.
           moneyman-static = naersk'.buildPackage {
             inherit pname version;
 
