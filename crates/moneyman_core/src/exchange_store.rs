@@ -1,7 +1,7 @@
 use std::path::PathBuf;
 
 use chrono::NaiveDate;
-use rusqlite::{vtab::csvtab, Connection};
+use rusqlite::Connection;
 use rusty_money::{
     iso::{self, Currency},
     Exchange, Money,
