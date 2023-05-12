@@ -8,7 +8,10 @@ use rusty_money::{
 };
 use thiserror::Error;
 
-use crate::{ecb, persistence::{self, FallbackRateError}};
+use crate::{
+    ecb,
+    persistence::{self, FallbackRateError},
+};
 
 pub struct ExchangeStore {
     conn: Connection,
