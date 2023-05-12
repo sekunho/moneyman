@@ -7,7 +7,6 @@ edition = "2021"
 
 [dependencies]
 moneyman_core = { workspace = true }
-moneyman_sync = { workspace = true }
 rusty-money = { workspace = true }
 chrono = { workspace = true }
 rust_decimal_macros = { workspace = true }
