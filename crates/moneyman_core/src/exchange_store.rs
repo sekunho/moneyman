@@ -12,6 +12,7 @@ use crate::{ecb, persistence};
 
 pub struct ExchangeStore {
     conn: Connection,
+    data_dir: PathBuf,
 }
 
 #[derive(Debug, Error)]
@@ -48,15 +49,13 @@ impl ExchangeStore {
     pub fn sync(data_dir: PathBuf) -> Result<Self, SyncError> {
         ecb::download_latest_history(&data_dir).map_err(|_| SyncError::Download)?;
 
-        let csv_path = data_dir.join("eurofxref-hist.csv");
         let db_path = data_dir.join("eurofxref-hist.db3");
         let conn = Connection::open(db_path).map_err(|_| SyncError::CouldNotRead)?;
+        let store = ExchangeStore { conn, data_dir };
 
-        Self::seed_db(csv_path, &conn).map_err(|_| SyncError::Seed)?;
-        Self::sqlite_and_its_dynamic_typing_what_a_good_idea_lol(&conn)
-            .map_err(|_| SyncError::Seed)?;
+        persistence::seed_db(&store.conn, &store.data_dir).map_err(|_| SyncError::Seed)?;
 
-        Ok(ExchangeStore { conn })
+        Ok(store)
     }
 
     /// Creates a new instance based on the existing data store. If you need
@@ -67,7 +66,7 @@ impl ExchangeStore {
         let db_path = data_dir.join("eurofxref-hist.db3");
         let conn = Connection::open(db_path).map_err(|_| InitError::CouldNotRead)?;
 
-        Ok(ExchangeStore { conn })
+        Ok(ExchangeStore { conn, data_dir })
     }
 
     pub fn convert_on_date<'a>(
@@ -137,56 +136,6 @@ impl ExchangeStore {
                 Ok(Money::from_decimal(*(target_money.amount()), to))
             }
         }
-    }
-
-    /// Sets rows with "N/A" to actual NULL values
-    fn sqlite_and_its_dynamic_typing_what_a_good_idea_lol(
-        conn: &Connection,
-    ) -> Result<(), rusqlite::Error> {
-        let currencies = [
-            "USD", "JPY", "BGN", "CYP", "CZK", "DKK", "EEK", "GBP", "HUF", "LTL", "LVL", "MTL",
-            "PLN", "ROL", "RON", "SEK", "SIT", "SKK", "CHF", "ISK", "NOK", "HRK", "RUB", "TRL",
-            "TRY", "AUD", "BRL", "CAD", "CNY", "HKD", "IDR", "ILS", "INR", "KRW", "MXN", "MYR",
-            "NZD", "PHP", "SGD", "THB", "ZAR",
-        ];
-
-        let statements = currencies
-            .map(|c| format!("UPDATE rates SET {c} = null WHERE {c} = 'N/A';"))
-            .join("\n");
-
-        let statements = format!("BEGIN; \n{statements}\nCOMMIT;");
-        (*conn).execute_batch(statements.as_ref())
-    }
-
-    /// Seeds the DB with the history of exchange rates
-    fn seed_db(csv_path: PathBuf, conn: &Connection) -> Result<(), rusqlite::Error> {
-        csvtab::load_module(conn)?;
-
-        let script = format!(
-            "
-            BEGIN;
-
-            DROP TABLE IF EXISTS rates;
-            DROP TABLE IF EXISTS vrates;
-
-            CREATE VIRTUAL TABLE vrates
-                USING csv
-                    ( filename={}
-                    , header=yes
-                    );
-
-            CREATE TABLE rates AS SELECT * FROM vrates;
-
-            CREATE UNIQUE INDEX date_index ON rates(Date);
-
-            DROP TABLE vrates;
-
-            COMMIT;
-        ",
-            csv_path.to_str().expect("Expected a UTF-8 path")
-        );
-
-        conn.execute_batch(script.as_str())
     }
 }
 
