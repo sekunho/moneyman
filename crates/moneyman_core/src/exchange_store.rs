@@ -69,6 +69,79 @@ impl ExchangeStore {
         Ok(ExchangeStore { conn, data_dir })
     }
 
+    pub fn convert_on_date_with_fallback<'c>(
+        &self,
+        from_amount: Money<'c, Currency>,
+        to_currency: &'c Currency,
+        on_date: NaiveDate,
+    ) -> Result<Money<'c, Currency>, ConversionError> {
+        let from_currency = from_amount.currency();
+        match (from_currency, to_currency) {
+            (from, to) if from == to => Ok(from_amount),
+            (from @ iso::EUR, to) | (from, to @ iso::EUR) => {
+                let currencies = match to {
+                    iso::EUR => Vec::from([from]),
+                    _ => Vec::from([to]),
+                };
+                let rates = persistence::find_rates_with_fallback(&self.conn, currencies, on_date)
+                    .map_err(|err| match err {
+                        rusqlite::Error::QueryReturnedNoRows
+                        | rusqlite::Error::InvalidColumnType(_, _, _) => {
+                            ConversionError::NoExchangeRate(on_date)
+                        }
+
+                        _ => ConversionError::MalformedExchangeStore,
+                    })?;
+
+                let mut exchange = Exchange::new();
+
+                rates.iter().for_each(|rate| exchange.set_rate(rate));
+
+                let rate = match to {
+                    iso::EUR => exchange.get_rate(from, iso::EUR),
+                    _ => exchange.get_rate(iso::EUR, to),
+                };
+                let rate = rate.ok_or(ConversionError::NoExchangeRate(on_date))?;
+                let to_money = rate
+                    .convert(from_amount)
+                    .map_err(|_| ConversionError::InvalidCurrency)?;
+
+                Ok(Money::from_decimal(*(to_money.amount()), to))
+            }
+            (from, to) => {
+                let currencies = Vec::from([from, to]);
+                let rates =
+                    persistence::find_rates(&self.conn, currencies, on_date).map_err(|err| {
+                        match err {
+                            rusqlite::Error::QueryReturnedNoRows => {
+                                ConversionError::NoExchangeRate(on_date)
+                            }
+                            _ => ConversionError::MalformedExchangeStore,
+                        }
+                    })?;
+                let mut exchange = Exchange::new();
+
+                rates.iter().for_each(|rate| exchange.set_rate(rate));
+
+                // Use EUR as the bridge between currencies
+                let from_curr_to_eur_rate = exchange
+                    .get_rate(from, iso::EUR)
+                    .ok_or(ConversionError::NoExchangeRate(on_date))?;
+                let eur = from_curr_to_eur_rate
+                    .convert(from_amount)
+                    .map_err(|_| ConversionError::InvalidCurrency)?;
+                let from_eur_to_target_curr_rate = exchange
+                    .get_rate(iso::EUR, to)
+                    .ok_or(ConversionError::NoExchangeRate(on_date))?;
+                let target_money = from_eur_to_target_curr_rate
+                    .convert(eur)
+                    .map_err(|_| ConversionError::InvalidCurrency)?;
+
+                Ok(Money::from_decimal(*(target_money.amount()), to))
+            }
+        }
+    }
+
     pub fn convert_on_date<'a>(
         &self,
         from_amount: Money<'a, Currency>,
@@ -84,12 +157,14 @@ impl ExchangeStore {
                     iso::EUR => Vec::from([from]),
                     _ => Vec::from([to]),
                 };
-                let rates = persistence::find_rates_of_currencies(&self.conn, currencies, on_date)
-                    .map_err(|err| match err {
-                        rusqlite::Error::QueryReturnedNoRows => {
-                            ConversionError::NoExchangeRate(on_date)
+                let rates =
+                    persistence::find_rates(&self.conn, currencies, on_date).map_err(|err| {
+                        match err {
+                            rusqlite::Error::QueryReturnedNoRows => {
+                                ConversionError::NoExchangeRate(on_date)
+                            }
+                            _ => ConversionError::MalformedExchangeStore,
                         }
-                        _ => ConversionError::MalformedExchangeStore,
                     })?;
                 let mut exchange = Exchange::new();
 
@@ -108,12 +183,14 @@ impl ExchangeStore {
             }
             (from, to) => {
                 let currencies = Vec::from([from, to]);
-                let rates = persistence::find_rates_of_currencies(&self.conn, currencies, on_date)
-                    .map_err(|err| match err {
-                        rusqlite::Error::QueryReturnedNoRows => {
-                            ConversionError::NoExchangeRate(on_date)
+                let rates =
+                    persistence::find_rates(&self.conn, currencies, on_date).map_err(|err| {
+                        match err {
+                            rusqlite::Error::QueryReturnedNoRows => {
+                                ConversionError::NoExchangeRate(on_date)
+                            }
+                            _ => ConversionError::MalformedExchangeStore,
                         }
-                        _ => ConversionError::MalformedExchangeStore,
                     })?;
                 let mut exchange = Exchange::new();
 

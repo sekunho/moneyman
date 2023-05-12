@@ -1,16 +1,17 @@
 use std::path::Path;
 
 use chrono::NaiveDate;
-use rusqlite::{vtab::csvtab, Connection};
+use rusqlite::{vtab::csvtab, Connection, Row};
 use rust_decimal::Decimal;
 use rust_decimal_macros::dec;
 use rusty_money::{
     iso::{self, Currency},
-    ExchangeRate,
+    Exchange, ExchangeRate, Money,
 };
 
-/// Finds the rates of the given currencies to one EUR. This will ignore EUR.
-pub(crate) fn find_rates_of_currencies<'c>(
+/// Finds the rates of the given currencies to one EUR on a given date. This
+/// will ignore EUR.
+pub(crate) fn find_rates<'c>(
     conn: &Connection,
     currencies: Vec<&'c Currency>,
     on: NaiveDate,
@@ -28,35 +29,179 @@ pub(crate) fn find_rates_of_currencies<'c>(
     let selectable_columns = filtered_currencies.join(", ");
 
     let mut stmt = conn
-        .prepare(format!("SELECT {selectable_columns} FROM rates WHERE date = ?1").as_ref())
+        .prepare(format!("SELECT Date, {selectable_columns} FROM rates WHERE date = ?1").as_ref())
         .expect("oh no");
 
-    // FIXME: Refactor this spaghetti
     stmt.query_row([on.to_string()], |row| {
-        let currs: Result<Vec<ExchangeRate<Currency>>, rusqlite::Error> = currencies
-            .into_iter()
-            .enumerate()
-            .fold(Vec::new(), |mut rates, (index, currency)| {
-                match row.get::<usize, String>(index) {
-                    Ok(rate) => {
-                        let (to_eur, from_eur) = parse_rate(currency, rate);
-                        rates.push(Ok(to_eur));
-                        rates.push(Ok(from_eur));
-
-                        rates
-                    }
-                    Err(e) => {
-                        rates.push(Err(e));
-
-                        rates
-                    }
-                }
-            })
-            .into_iter()
-            .collect();
-
-        currs
+        row_to_exchange_rates(row, currencies)
     })
+}
+
+/// Like `find_rates` but uses linear interpolation to fill in the missing
+/// rates as long as the requested date is not out of bounds. It is considered
+/// out of bounds if it predates the earliest possible date, or exceeds the
+/// latest row.
+pub(crate) fn find_rates_with_fallback<'c>(
+    conn: &Connection,
+    currencies: Vec<&'c Currency>,
+    on: NaiveDate,
+) -> Result<Vec<ExchangeRate<'c, Currency>>, rusqlite::Error> {
+    let filtered_currencies: Vec<String> = currencies
+        .iter()
+        .filter_map(|c| {
+            if *c == iso::EUR {
+                None
+            } else {
+                Some(c.iso_alpha_code.to_string())
+            }
+        })
+        .collect();
+    let selectable_columns = filtered_currencies.join(", ");
+
+    let mut stmt = conn
+        .prepare(format!("SELECT Date, {selectable_columns} FROM rates WHERE date = ?1").as_ref())
+        .expect("oh no");
+
+    match stmt.query_row([on.to_string()], |row| {
+        row_to_exchange_rates(row, currencies.clone())
+    }) {
+        Ok(currs) => Ok(currs),
+        Err(rusqlite::Error::QueryReturnedNoRows) => fetch_neighboring_rates(conn, currencies, on),
+        Err(e) => Err(e),
+    }
+}
+
+fn fetch_neighboring_rates<'c>(
+    conn: &Connection,
+    currencies: Vec<&'c Currency>,
+    on: NaiveDate,
+) -> Result<Vec<ExchangeRate<'c, Currency>>, rusqlite::Error> {
+    let selectable_columns = currencies
+        .iter()
+        .map(|c| c.iso_alpha_code.to_string())
+        .collect::<Vec<_>>()
+        .join(", ");
+
+    let mut prev_neighbor_stmt = conn.prepare(
+        format!(
+            "SELECT Date, {selectable_columns} FROM rates WHERE Date < ?1 ORDER BY Date DESC LIMIT 1"
+        )
+        .as_ref(),
+    )?;
+
+    let mut next_neighbor_stmt = conn.prepare(
+        format!("SELECT Date, {selectable_columns} FROM rates WHERE Date > ?1 ORDER BY Date ASC LIMIT 1")
+            .as_ref(),
+    )?;
+
+    let (prev_date, prev_neighbor) = prev_neighbor_stmt.query_row([on.to_string()], |row| {
+        let row = dbg!(row);
+        row_to_exchange_rates(row, currencies.clone()).and_then(|rates| {
+            let date = NaiveDate::parse_from_str(row.get::<usize, String>(0)?.as_str(), "%Y-%m-%d")
+                .expect("not a date oh no");
+            Ok((date, rates))
+        })
+    })?;
+    let (next_date, next_neighbor) = next_neighbor_stmt.query_row([on.to_string()], |row| {
+        let row = dbg!(row);
+        row_to_exchange_rates(row, currencies.clone()).and_then(|rates| {
+            let date = NaiveDate::parse_from_str(row.get::<usize, String>(0)?.as_str(), "%Y-%m-%d")
+                .expect("not a date oh no");
+            Ok((date, rates))
+        })
+    })?;
+
+    let prev_date_exchange = prev_neighbor
+        .iter()
+        .fold(Exchange::new(), |mut exchange, rate| {
+            exchange.set_rate(rate);
+            exchange
+        });
+
+    let next_date_exchange = next_neighbor
+        .iter()
+        .fold(Exchange::new(), |mut exchange, rate| {
+            exchange.set_rate(rate);
+            exchange
+        });
+
+    let exchange_rates = currencies
+        .into_iter()
+        .fold(Vec::new(), |mut exchange_rates, currency| {
+            let prev_date_rate = prev_date_exchange.get_rate(currency, iso::EUR).unwrap();
+            let y1 = dec!(1)
+                / dbg!(prev_date_rate
+                    .convert(Money::from_decimal(dec!(1), currency))
+                    .unwrap()
+                    .amount()
+                    .clone());
+            let next_date_rate = next_date_exchange.get_rate(currency, iso::EUR).unwrap();
+            let y2 = dec!(1)
+                / dbg!(next_date_rate
+                    .convert(Money::from_decimal(dec!(1), currency))
+                    .unwrap()
+                    .amount()
+                    .clone());
+            let x1 = dbg!(Decimal::new(
+                prev_date
+                    .signed_duration_since(NaiveDate::from_ymd_opt(1999, 01, 04).unwrap())
+                    .num_days(),
+                0
+            ));
+            let x3 = dbg!(Decimal::new(
+                on.signed_duration_since(NaiveDate::from_ymd_opt(1999, 01, 04).unwrap())
+                    .num_days(),
+                0
+            ));
+            let x2 = dbg!(Decimal::new(
+                next_date
+                    .signed_duration_since(NaiveDate::from_ymd_opt(1999, 01, 04).unwrap())
+                    .num_days(),
+                0
+            ));
+
+            let slope = (y2 - y1) / (x2 - x1);
+            let y3 = y1 + slope * (x3 - x1);
+
+            exchange_rates.push(ExchangeRate::new(iso::EUR, currency, y3).unwrap());
+            exchange_rates.push(ExchangeRate::new(currency, iso::EUR, dec!(1) / y3).unwrap());
+
+            exchange_rates
+        });
+
+    Ok(exchange_rates)
+}
+
+/// Parses a row into bidirectional exchange rates for all of the given
+/// currencies.
+fn row_to_exchange_rates<'c>(
+    row: &Row,
+    currencies: Vec<&'c Currency>,
+) -> Result<Vec<ExchangeRate<'c, Currency>>, rusqlite::Error> {
+    let currs: Result<Vec<ExchangeRate<Currency>>, rusqlite::Error> = currencies
+        .into_iter()
+        .enumerate()
+        .fold(Vec::new(), |mut rates, (index, currency)| {
+            // Plus one because we want to ignore the date in this case.
+            match row.get::<usize, String>(index + 1) {
+                Ok(rate) => {
+                    let (to_eur, from_eur) = parse_rate(currency, rate);
+                    rates.push(Ok(to_eur));
+                    rates.push(Ok(from_eur));
+
+                    rates
+                }
+                Err(e) => {
+                    rates.push(Err(e));
+
+                    rates
+                }
+            }
+        })
+        .into_iter()
+        .collect();
+
+    currs
 }
 
 /// Seeds the DB with the history of exchange rates

@@ -23,9 +23,13 @@ fn main() {
     let _ = store.convert_on_date(amount_in_eur.clone(), iso::JPY, date);
 
     // Convert 500.00 USD to JPY
-    let _ = dbg!(store.convert_on_date(amount_in_usd, iso::JPY, date));
+    let _ = dbg!(store.convert_on_date(amount_in_usd.clone(), iso::JPY, date));
 
     // Convert EUR to BRL on a date with no historical data
     let date = NaiveDate::from_ymd_opt(2007, 12, 31).expect("ok date");
     let _ = dbg!("{}", store.convert_on_date(amount_in_eur, iso::BRL, date));
+
+    // Convert 500.00 USD to EUR
+    let date = NaiveDate::from_ymd_opt(2023, 5, 6).expect("ok date");
+    let _ = dbg!(store.convert_on_date_with_fallback(amount_in_usd, iso::EUR, date));
 }

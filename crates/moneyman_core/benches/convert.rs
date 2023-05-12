@@ -74,5 +74,11 @@ pub fn indexed_convert_on_date_non_euro(c: &mut Criterion) {
     });
 }
 
-criterion_group!(benches, non_indexed_convert_on_date, non_indexed_convert_on_date_non_euro, indexed_convert_on_date, indexed_convert_on_date_non_euro);
+criterion_group!(
+    benches,
+    non_indexed_convert_on_date,
+    non_indexed_convert_on_date_non_euro,
+    indexed_convert_on_date,
+    indexed_convert_on_date_non_euro
+);
 criterion_main!(benches);
