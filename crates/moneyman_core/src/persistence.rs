@@ -9,6 +9,14 @@ use rusty_money::{
     Exchange, ExchangeRate, Money,
 };
 
+struct Neighbors<'c> {
+    prev_rates: Vec<ExchangeRate<'c, Currency>>,
+    prev_date: NaiveDate,
+    next_rates: Vec<ExchangeRate<'c, Currency>>,
+    next_date: NaiveDate,
+    missing_date: NaiveDate,
+}
+
 /// Finds the rates of the given currencies to one EUR on a given date. This
 /// will ignore EUR.
 pub(crate) fn find_rates<'c>(
@@ -33,8 +41,19 @@ pub(crate) fn find_rates<'c>(
         .expect("oh no");
 
     stmt.query_row([on.to_string()], |row| {
-        row_to_exchange_rates(row, currencies)
+        row_to_exchange_rates(row, currencies.as_slice())
     })
+}
+
+pub(crate) enum FallbackRateError {
+    Db(rusqlite::Error),
+    Interpolation(InterpolationError),
+}
+
+impl From<rusqlite::Error> for FallbackRateError {
+    fn from(err: rusqlite::Error) -> Self {
+        FallbackRateError::Db(err)
+    }
 }
 
 /// Like `find_rates` but uses linear interpolation to fill in the missing
@@ -45,7 +64,7 @@ pub(crate) fn find_rates_with_fallback<'c>(
     conn: &Connection,
     currencies: Vec<&'c Currency>,
     on: NaiveDate,
-) -> Result<Vec<ExchangeRate<'c, Currency>>, rusqlite::Error> {
+) -> Result<Vec<ExchangeRate<'c, Currency>>, FallbackRateError> {
     let filtered_currencies: Vec<String> = currencies
         .iter()
         .filter_map(|c| {
@@ -63,19 +82,24 @@ pub(crate) fn find_rates_with_fallback<'c>(
         .expect("oh no");
 
     match stmt.query_row([on.to_string()], |row| {
-        row_to_exchange_rates(row, currencies.clone())
+        row_to_exchange_rates(row, currencies.as_slice())
     }) {
         Ok(currs) => Ok(currs),
-        Err(rusqlite::Error::QueryReturnedNoRows) => fetch_neighboring_rates(conn, currencies, on),
-        Err(e) => Err(e),
+        Err(rusqlite::Error::QueryReturnedNoRows) => {
+            let neighbors = fetch_neighboring_rates(conn, currencies.as_slice(), on)?;
+            interpolate_rates(currencies.as_slice(), neighbors)
+                .map_err(FallbackRateError::Interpolation)
+        }
+        Err(e) => Err(FallbackRateError::Db(e)),
     }
 }
 
+// Fetches the neighboring rates (previous and next) of the missing date.
 fn fetch_neighboring_rates<'c>(
     conn: &Connection,
-    currencies: Vec<&'c Currency>,
+    currencies: &[&'c Currency],
     on: NaiveDate,
-) -> Result<Vec<ExchangeRate<'c, Currency>>, rusqlite::Error> {
+) -> Result<Neighbors<'c>, rusqlite::Error> {
     let selectable_columns = currencies
         .iter()
         .map(|c| c.iso_alpha_code.to_string())
@@ -94,92 +118,141 @@ fn fetch_neighboring_rates<'c>(
             .as_ref(),
     )?;
 
-    let (prev_date, prev_neighbor) = prev_neighbor_stmt.query_row([on.to_string()], |row| {
+    let (prev_date, prev_rates) = prev_neighbor_stmt.query_row([on.to_string()], |row| {
         let row = dbg!(row);
-        row_to_exchange_rates(row, currencies.clone()).and_then(|rates| {
+        row_to_exchange_rates(row, currencies).and_then(|rates| {
             let date = NaiveDate::parse_from_str(row.get::<usize, String>(0)?.as_str(), "%Y-%m-%d")
                 .expect("not a date oh no");
             Ok((date, rates))
         })
     })?;
-    let (next_date, next_neighbor) = next_neighbor_stmt.query_row([on.to_string()], |row| {
+    let (next_date, next_rates) = next_neighbor_stmt.query_row([on.to_string()], |row| {
         let row = dbg!(row);
-        row_to_exchange_rates(row, currencies.clone()).and_then(|rates| {
+        row_to_exchange_rates(row, currencies).and_then(|rates| {
             let date = NaiveDate::parse_from_str(row.get::<usize, String>(0)?.as_str(), "%Y-%m-%d")
                 .expect("not a date oh no");
             Ok((date, rates))
         })
     })?;
 
-    let prev_date_exchange = prev_neighbor
-        .iter()
-        .fold(Exchange::new(), |mut exchange, rate| {
-            exchange.set_rate(rate);
-            exchange
-        });
+    Ok(Neighbors {
+        prev_rates,
+        prev_date,
+        next_rates,
+        next_date,
+        missing_date: on,
+    })
+}
 
-    let next_date_exchange = next_neighbor
-        .iter()
-        .fold(Exchange::new(), |mut exchange, rate| {
-            exchange.set_rate(rate);
-            exchange
-        });
+pub(crate) enum InterpolationError {
+    MissingRate,
+    SameCurrency,
+}
 
-    let exchange_rates = currencies
-        .into_iter()
+fn interpolate_rates<'c>(
+    currencies: &[&'c Currency],
+    neighbors: Neighbors<'c>,
+) -> Result<Vec<ExchangeRate<'c, Currency>>, InterpolationError> {
+    let prev_date_exchange =
+        neighbors
+            .prev_rates
+            .iter()
+            .fold(Exchange::new(), |mut exchange, rate| {
+                exchange.set_rate(rate);
+                exchange
+            });
+
+    let next_date_exchange =
+        neighbors
+            .next_rates
+            .iter()
+            .fold(Exchange::new(), |mut exchange, rate| {
+                exchange.set_rate(rate);
+                exchange
+            });
+
+    currencies
+        .iter()
         .fold(Vec::new(), |mut exchange_rates, currency| {
-            let prev_date_rate = prev_date_exchange.get_rate(currency, iso::EUR).unwrap();
-            let y1 = dec!(1)
-                / dbg!(prev_date_rate
-                    .convert(Money::from_decimal(dec!(1), currency))
-                    .unwrap()
-                    .amount()
-                    .clone());
-            let next_date_rate = next_date_exchange.get_rate(currency, iso::EUR).unwrap();
-            let y2 = dec!(1)
-                / dbg!(next_date_rate
-                    .convert(Money::from_decimal(dec!(1), currency))
-                    .unwrap()
-                    .amount()
-                    .clone());
-            let x1 = dbg!(Decimal::new(
-                prev_date
-                    .signed_duration_since(NaiveDate::from_ymd_opt(1999, 01, 04).unwrap())
-                    .num_days(),
-                0
-            ));
-            let x3 = dbg!(Decimal::new(
-                on.signed_duration_since(NaiveDate::from_ymd_opt(1999, 01, 04).unwrap())
-                    .num_days(),
-                0
-            ));
-            let x2 = dbg!(Decimal::new(
-                next_date
-                    .signed_duration_since(NaiveDate::from_ymd_opt(1999, 01, 04).unwrap())
-                    .num_days(),
-                0
-            ));
+            let prev_date_rate = prev_date_exchange
+                .get_rate(currency, iso::EUR)
+                .ok_or(InterpolationError::MissingRate);
+            let next_date_rate = next_date_exchange
+                .get_rate(currency, iso::EUR)
+                .ok_or(InterpolationError::MissingRate);
 
-            let slope = (y2 - y1) / (x2 - x1);
-            let y3 = y1 + slope * (x3 - x1);
+            match (prev_date_rate, next_date_rate) {
+                (Ok(prev_date_rate), Ok(next_date_rate)) => {
+                    let y1 = dec!(1)
+                        / *prev_date_rate
+                            .convert(Money::from_decimal(dec!(1), currency))
+                            .unwrap()
+                            .amount();
+                    let y2 = dec!(1)
+                        / *next_date_rate
+                            .convert(Money::from_decimal(dec!(1), currency))
+                            .unwrap()
+                            .amount();
+                    let x1 = dbg!(Decimal::new(
+                        neighbors
+                            .prev_date
+                            .signed_duration_since(NaiveDate::from_ymd_opt(1999, 1, 4).unwrap())
+                            .num_days(),
+                        0
+                    ));
+                    let x3 = dbg!(Decimal::new(
+                        neighbors
+                            .missing_date
+                            .signed_duration_since(NaiveDate::from_ymd_opt(1999, 1, 4).unwrap())
+                            .num_days(),
+                        0
+                    ));
+                    let x2 = dbg!(Decimal::new(
+                        neighbors
+                            .next_date
+                            .signed_duration_since(NaiveDate::from_ymd_opt(1999, 1, 4).unwrap())
+                            .num_days(),
+                        0
+                    ));
 
-            exchange_rates.push(ExchangeRate::new(iso::EUR, currency, y3).unwrap());
-            exchange_rates.push(ExchangeRate::new(currency, iso::EUR, dec!(1) / y3).unwrap());
+                    let slope = (y2 - y1) / (x2 - x1);
+                    let y3 = y1 + slope * (x3 - x1);
+                    let from_eur_rate = ExchangeRate::new(iso::EUR, currency, y3)
+                        .map_err(|_| InterpolationError::SameCurrency);
+                    let to_eur_rate = ExchangeRate::new(*currency, iso::EUR, dec!(1) / y3)
+                        .map_err(|_| InterpolationError::SameCurrency);
 
-            exchange_rates
-        });
+                    exchange_rates.push(from_eur_rate);
+                    exchange_rates.push(to_eur_rate);
 
-    Ok(exchange_rates)
+                    exchange_rates
+                }
+                (Ok(_), Err(_)) => {
+                    exchange_rates.push(Err(InterpolationError::MissingRate));
+                    exchange_rates
+                }
+                (Err(_), Ok(_)) => {
+                    exchange_rates.push(Err(InterpolationError::MissingRate));
+                    exchange_rates
+                }
+                (Err(_), Err(_)) => {
+                    exchange_rates.push(Err(InterpolationError::MissingRate));
+                    exchange_rates
+                }
+            }
+        })
+        .into_iter()
+        .collect()
 }
 
 /// Parses a row into bidirectional exchange rates for all of the given
 /// currencies.
 fn row_to_exchange_rates<'c>(
     row: &Row,
-    currencies: Vec<&'c Currency>,
+    currencies: &[&'c Currency],
 ) -> Result<Vec<ExchangeRate<'c, Currency>>, rusqlite::Error> {
     let currs: Result<Vec<ExchangeRate<Currency>>, rusqlite::Error> = currencies
-        .into_iter()
+        .iter()
         .enumerate()
         .fold(Vec::new(), |mut rates, (index, currency)| {
             // Plus one because we want to ignore the date in this case.

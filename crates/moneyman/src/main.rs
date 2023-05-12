@@ -29,7 +29,7 @@ fn main() {
     let date = NaiveDate::from_ymd_opt(2007, 12, 31).expect("ok date");
     let _ = dbg!("{}", store.convert_on_date(amount_in_eur, iso::BRL, date));
 
-    // Convert 500.00 USD to EUR
+    // Convert 500.00 USD to EUR even if ECB has no record on this date
     let date = NaiveDate::from_ymd_opt(2023, 5, 6).expect("ok date");
     let _ = dbg!(store.convert_on_date_with_fallback(amount_in_usd, iso::EUR, date));
 }

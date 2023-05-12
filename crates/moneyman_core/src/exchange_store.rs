@@ -8,7 +8,7 @@ use rusty_money::{
 };
 use thiserror::Error;
 
-use crate::{ecb, persistence};
+use crate::{ecb, persistence::{self, FallbackRateError}};
 
 pub struct ExchangeStore {
     conn: Connection,
@@ -85,8 +85,8 @@ impl ExchangeStore {
                 };
                 let rates = persistence::find_rates_with_fallback(&self.conn, currencies, on_date)
                     .map_err(|err| match err {
-                        rusqlite::Error::QueryReturnedNoRows
-                        | rusqlite::Error::InvalidColumnType(_, _, _) => {
+                        FallbackRateError::Db(rusqlite::Error::QueryReturnedNoRows)
+                        | FallbackRateError::Db(rusqlite::Error::InvalidColumnType(_, _, _)) => {
                             ConversionError::NoExchangeRate(on_date)
                         }
 
