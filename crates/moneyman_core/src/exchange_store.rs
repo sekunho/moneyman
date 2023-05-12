@@ -78,6 +78,7 @@ impl ExchangeStore {
         let from_currency = from_amount.currency();
         match (from_currency, to_currency) {
             (from, to) if from == to => Ok(from_amount),
+            // FIXME: Split OR pattern, and factor out to/from EUR conversion
             (from @ iso::EUR, to) | (from, to @ iso::EUR) => {
                 let currencies = match to {
                     iso::EUR => Vec::from([from]),
@@ -108,6 +109,7 @@ impl ExchangeStore {
 
                 Ok(Money::from_decimal(*(to_money.amount()), to))
             }
+            // FIXME: Factor out non-EUR to non-EUR conversion
             (from, to) => {
                 let currencies = Vec::from([from, to]);
                 let rates =
@@ -152,6 +154,7 @@ impl ExchangeStore {
 
         match (from_currency, to_currency) {
             (from, to) if from == to => Ok(from_amount),
+            // FIXME: Split OR pattern, and factor out to/from EUR conversion
             (from @ iso::EUR, to) | (from, to @ iso::EUR) => {
                 let currencies = match to {
                     iso::EUR => Vec::from([from]),
@@ -181,6 +184,7 @@ impl ExchangeStore {
 
                 Ok(Money::from_decimal(*(to_money.amount()), to))
             }
+            // FIXME: Factor out non-EUR to non-EUR conversion
             (from, to) => {
                 let currencies = Vec::from([from, to]);
                 let rates =
