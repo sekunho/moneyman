@@ -59,6 +59,13 @@ pub(crate) fn find_rates_of_currencies<'c>(
     })
 }
 
+/// Seeds the DB with the history of exchange rates
+pub(crate) fn seed_db(conn: &Connection, data_dir: &Path) -> Result<(), rusqlite::Error> {
+    let csv_path = data_dir.join("eurofxref-hist.csv");
+
+    copy_from_csv(conn, &csv_path).and_then(|_| clean_up_na(conn))
+}
+
 /// Parses a currency rate into bidirectional exchange rates
 fn parse_rate(
     currency: &Currency,
@@ -74,7 +81,7 @@ fn parse_rate(
 }
 
 /// Creates a virtual table `vrates` from the CSV
-pub(crate) fn copy_from_csv(conn: &Connection, csv_path: &Path) -> Result<(), rusqlite::Error> {
+fn copy_from_csv(conn: &Connection, csv_path: &Path) -> Result<(), rusqlite::Error> {
     csvtab::load_module(conn)?;
 
     let script = format!(
@@ -101,13 +108,6 @@ pub(crate) fn copy_from_csv(conn: &Connection, csv_path: &Path) -> Result<(), ru
     );
 
     conn.execute_batch(script.as_str())
-}
-
-/// Seeds the DB with the history of exchange rates
-pub(crate) fn seed_db(conn: &Connection, data_dir: &Path) -> Result<(), rusqlite::Error> {
-    let csv_path = data_dir.join("eurofxref-hist.csv");
-
-    copy_from_csv(conn, &csv_path).and_then(|_| clean_up_na(conn))
 }
 
 /// Sets rows with "N/A" to actual NULL values
