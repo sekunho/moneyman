@@ -1,5 +1,7 @@
+use std::path::Path;
+
 use chrono::NaiveDate;
-use rusqlite::Connection;
+use rusqlite::{vtab::csvtab, Connection};
 use rust_decimal::Decimal;
 use rust_decimal_macros::dec;
 use rusty_money::{
@@ -57,6 +59,13 @@ pub(crate) fn find_rates_of_currencies<'c>(
     })
 }
 
+/// Seeds the DB with the history of exchange rates
+pub(crate) fn seed_db(conn: &Connection, data_dir: &Path) -> Result<(), rusqlite::Error> {
+    let csv_path = data_dir.join("eurofxref-hist.csv");
+
+    copy_from_csv(conn, &csv_path).and_then(|_| clean_up_na(conn))
+}
+
 /// Parses a currency rate into bidirectional exchange rates
 fn parse_rate(
     currency: &Currency,
@@ -69,6 +78,53 @@ fn parse_rate(
     let from_eur = ExchangeRate::new(iso::EUR, currency, rate).unwrap();
 
     (to_eur, from_eur)
+}
+
+/// Creates a virtual table `vrates` from the CSV
+fn copy_from_csv(conn: &Connection, csv_path: &Path) -> Result<(), rusqlite::Error> {
+    csvtab::load_module(conn)?;
+
+    let script = format!(
+        "
+        BEGIN;
+
+            DROP TABLE IF EXISTS rates;
+            DROP TABLE IF EXISTS vrates;
+
+            CREATE VIRTUAL TABLE vrates
+                USING csv
+                    ( filename={}
+                    , header=yes
+                    );
+
+            CREATE TABLE rates AS SELECT * FROM vrates;
+
+            CREATE UNIQUE INDEX date_index ON rates(Date);
+
+            DROP TABLE vrates;
+        COMMIT;
+        ",
+        csv_path.to_str().expect("expected a UTF-8 path")
+    );
+
+    conn.execute_batch(script.as_str())
+}
+
+/// Sets rows with "N/A" to actual NULL values
+fn clean_up_na(conn: &Connection) -> Result<(), rusqlite::Error> {
+    let currencies = [
+        "USD", "JPY", "BGN", "CYP", "CZK", "DKK", "EEK", "GBP", "HUF", "LTL", "LVL", "MTL", "PLN",
+        "ROL", "RON", "SEK", "SIT", "SKK", "CHF", "ISK", "NOK", "HRK", "RUB", "TRL", "TRY", "AUD",
+        "BRL", "CAD", "CNY", "HKD", "IDR", "ILS", "INR", "KRW", "MXN", "MYR", "NZD", "PHP", "SGD",
+        "THB", "ZAR",
+    ];
+
+    let statements = currencies
+        .map(|c| format!("UPDATE rates SET {c} = null WHERE {c} = 'N/A';"))
+        .join("\n");
+
+    let statements = format!("BEGIN; \n{statements}\nCOMMIT;");
+    (*conn).execute_batch(statements.as_ref())
 }
 
 #[cfg(test)]
