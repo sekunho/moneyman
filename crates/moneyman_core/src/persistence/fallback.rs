@@ -9,6 +9,12 @@ use rusty_money::{
 
 use super::exchange_rate::row_to_exchange_rates;
 
+#[derive(Debug)]
+pub(crate) enum InterpolationError {
+    MissingRate,
+    SameCurrency,
+}
+
 pub(crate) struct Neighbors<'c> {
     pub prev_rates: Vec<ExchangeRate<'c, Currency>>,
     pub prev_date: NaiveDate,
@@ -43,8 +49,17 @@ pub(crate) fn fetch_neighboring_rates<'c>(
     )?;
 
     let mut next_neighbor_stmt = conn.prepare(
-        format!("SELECT Date, {selectable_columns} FROM rates WHERE Date > ?1 AND Interpolated = false ORDER BY Date ASC LIMIT 1")
-            .as_ref(),
+        format!(
+            "
+            SELECT Date, {selectable_columns}
+                FROM rates
+                WHERE Date > ?1
+                    AND Interpolated = false
+                ORDER BY Date ASC
+                LIMIT 1
+            "
+        )
+        .as_ref(),
     )?;
 
     let (prev_date, prev_rates) = prev_neighbor_stmt.query_row([on.to_string()], |row| {
@@ -69,12 +84,6 @@ pub(crate) fn fetch_neighboring_rates<'c>(
         next_date,
         missing_date: on,
     })
-}
-
-#[derive(Debug)]
-pub(crate) enum InterpolationError {
-    MissingRate,
-    SameCurrency,
 }
 
 pub(crate) fn interpolate_rates<'c>(
@@ -113,12 +122,12 @@ pub(crate) fn interpolate_rates<'c>(
                 (Ok(prev_date_rate), Ok(next_date_rate)) => {
                     let y1 = dec!(1)
                         / *prev_date_rate
-                            .convert(Money::from_decimal(dec!(1), currency))
+                            .convert(Money::from_decimal(dec!(1), *currency))
                             .unwrap()
                             .amount();
                     let y2 = dec!(1)
                         / *next_date_rate
-                            .convert(Money::from_decimal(dec!(1), currency))
+                            .convert(Money::from_decimal(dec!(1), *currency))
                             .unwrap()
                             .amount();
                     let x1 = Decimal::new(
@@ -155,18 +164,13 @@ pub(crate) fn interpolate_rates<'c>(
 
                     exchange_rates
                 }
-                (Ok(_), Err(_)) => {
-                    // exchange_rates.push(Err(InterpolationError::MissingRate));
-                    exchange_rates
-                }
-                (Err(_), Ok(_)) => {
-                    // exchange_rates.push(Err(InterpolationError::MissingRate));
-                    exchange_rates
-                }
-                (Err(_), Err(_)) => {
-                    // exchange_rates.push(Err(InterpolationError::MissingRate));
-                    exchange_rates
-                }
+                // NOTE: It's fine to ignore the errors since missing rates are
+                // considered `null` in SQLite. Plus, these are for currencies
+                // that don't exist anymore, or only recently existed so it
+                // doesn't make much sense to interpolate anyway.
+                (Err(InterpolationError::MissingRate), _)
+                | (_, Err(InterpolationError::MissingRate)) => exchange_rates,
+                _ => panic!("This was not supposed to happen I think"),
             }
         })
         .into_iter()

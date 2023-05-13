@@ -110,12 +110,12 @@ fn precompute_interpolated_rates(conn: &Connection) -> Result<(), rusqlite::Erro
     )?;
 
     let selectable_columns = currencies.map(|c| c.iso_alpha_code).join(", ");
+
     let mut first_date_statement = conn.prepare("SELECT Date FROM rates ORDER BY Date ASC")?;
     let mut latest_date_statement = conn.prepare("SELECT Date FROM rates ORDER BY Date DESC")?;
-    let first_date = first_date_statement.query_row((), |row| row.get::<usize, String>(0))?;
-    let first_date = NaiveDate::parse_from_str(first_date.as_str(), "%Y-%m-%d").expect("");
-    let latest_date = latest_date_statement.query_row((), |row| row.get::<usize, String>(0))?;
-    let latest_date = NaiveDate::parse_from_str(latest_date.as_str(), "%Y-%m-%d").expect("");
+
+    let first_date = first_date_statement.query_row((), |row| row.get::<usize, NaiveDate>(0))?;
+    let latest_date = latest_date_statement.query_row((), |row| row.get::<usize, NaiveDate>(0))?;
 
     first_date
         .iter_days()
@@ -128,8 +128,7 @@ fn precompute_interpolated_rates(conn: &Connection) -> Result<(), rusqlite::Erro
             dbg!(date);
             let neighbors = fetch_neighboring_rates(conn, &currencies, date)
                 .expect("Unable to fetch neighboring rates");
-            let rates =
-                persistence::fallback::interpolate_rates(&currencies, neighbors)
+            let rates = persistence::fallback::interpolate_rates(&currencies, neighbors)
                 .expect("Unable to interpolate rates");
 
             let exchange = rates.iter().fold(Exchange::new(), |mut exchange, rate| {
@@ -140,26 +139,26 @@ fn precompute_interpolated_rates(conn: &Connection) -> Result<(), rusqlite::Erro
             let currency_values_str = currencies
                 .iter()
                 .map(|currency| {
-                    let rate =
-                        exchange.get_rate(iso::EUR, currency).and_then(|rate| {
-                            rate
-                            .convert(Money::from_decimal(dec!(1), iso::EUR))
-                            .ok()
-                        })
+                    let rate = exchange
+                        .get_rate(iso::EUR, currency)
+                        .and_then(|rate| rate.convert(Money::from_decimal(dec!(1), iso::EUR)).ok())
                         .map(|money| *money.amount());
 
                     match rate {
                         Some(rate) => rate.to_string(),
-                        None => String::from("null")
+                        None => String::from("null"),
                     }
                 })
                 .collect::<Vec<_>>()
                 .join(", ");
 
             let script = format!(
-                "INSERT INTO rates(Date, Interpolated, {selectable_columns}) VALUES ('{}', true, {}) ON CONFLICT DO NOTHING",
-                date,
-                currency_values_str
+                "
+                INSERT INTO rates(Date, Interpolated, {selectable_columns})
+                    VALUES ('{}', true, {})
+                    ON CONFLICT DO NOTHING
+                ",
+                date, currency_values_str
             );
 
             conn.execute_batch(script.as_str())
