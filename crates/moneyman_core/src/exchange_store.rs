@@ -4,7 +4,7 @@ use chrono::NaiveDate;
 use rusqlite::Connection;
 use rusty_money::{
     iso::{self, Currency},
-    Exchange, Money,
+    Exchange, ExchangeRate, Money,
 };
 use thiserror::Error;
 
@@ -115,14 +115,13 @@ impl ExchangeStore {
             // FIXME: Factor out non-EUR to non-EUR conversion
             (from, to) => {
                 let currencies = Vec::from([from, to]);
-                let rates =
-                    persistence::find_rates(&self.conn, currencies, on_date).map_err(|err| {
-                        match err {
-                            rusqlite::Error::QueryReturnedNoRows => {
-                                ConversionError::NoExchangeRate(on_date)
-                            }
-                            _ => ConversionError::MalformedExchangeStore,
+                let rates = persistence::find_rates_with_fallback(&self.conn, currencies, on_date)
+                    .map_err(|err| match err {
+                        FallbackRateError::Db(rusqlite::Error::QueryReturnedNoRows)
+                        | FallbackRateError::Db(rusqlite::Error::InvalidColumnType(_, _, _)) => {
+                            ConversionError::NoExchangeRate(on_date)
                         }
+                        _ => ConversionError::MalformedExchangeStore,
                     })?;
                 let mut exchange = Exchange::new();
 
@@ -172,9 +171,7 @@ impl ExchangeStore {
                             _ => ConversionError::MalformedExchangeStore,
                         }
                     })?;
-                let mut exchange = Exchange::new();
-
-                rates.iter().for_each(|rate| exchange.set_rate(rate));
+                let exchange = rates_to_exchange(rates.as_slice());
 
                 let rate = match to {
                     iso::EUR => exchange.get_rate(from, iso::EUR),
@@ -199,9 +196,7 @@ impl ExchangeStore {
                             _ => ConversionError::MalformedExchangeStore,
                         }
                     })?;
-                let mut exchange = Exchange::new();
-
-                rates.iter().for_each(|rate| exchange.set_rate(rate));
+                let exchange = rates_to_exchange(rates.as_slice());
 
                 // Use EUR as the bridge between currencies
                 let from_curr_to_eur_rate = exchange
@@ -221,6 +216,15 @@ impl ExchangeStore {
             }
         }
     }
+}
+
+/// Creates an `Exchange`, and sets it with all the given rates.
+fn rates_to_exchange<'c>(rates: &'c [ExchangeRate<'c, Currency>]) -> Exchange<'c, Currency> {
+    rates.iter().fold(Exchange::new(), |mut exchange, rate| {
+        exchange.set_rate(rate);
+
+        exchange
+    })
 }
 
 #[cfg(test)]
