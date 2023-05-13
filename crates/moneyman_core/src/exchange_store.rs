@@ -69,6 +69,9 @@ impl ExchangeStore {
         Ok(ExchangeStore { conn, data_dir })
     }
 
+    /// This is the "generic" version of the convert function. Along with the
+    /// usual data needed to convert two currencies, it also needs you to
+    /// provide a closure that returns the exchange rates.
     fn convert<'c, F>(
         &self,
         from_amount: Money<'c, Currency>,
@@ -137,6 +140,11 @@ impl ExchangeStore {
         }
     }
 
+    /// Converts currencies using a date's specific rate but it also uses
+    /// interpolated values in the event that the date is not on record. If the
+    /// date is out of bounds, e.g before the first record's date or after the
+    /// last record's date, then it will fail to convert. To use the fallback,
+    /// one must stay within the bounds of the store's dates.
     pub fn convert_on_date_with_fallback<'c>(
         &self,
         from_amount: Money<'c, Currency>,
@@ -150,6 +158,9 @@ impl ExchangeStore {
         self.convert(from_amount, to_currency, on_date, find_rates)
     }
 
+    /// Converts currencies using the rate on the given date. If the requested
+    /// date doesn't exist, then it'll return with the error
+    /// `ConversionError::NoExchangeRate`.
     pub fn convert_on_date<'c>(
         &self,
         from_amount: Money<'c, Currency>,
