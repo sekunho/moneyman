@@ -108,18 +108,17 @@ fn fetch_neighboring_rates<'c>(
 
     let mut prev_neighbor_stmt = conn.prepare(
         format!(
-            "SELECT Date, {selectable_columns} FROM rates WHERE Date < ?1 ORDER BY Date DESC LIMIT 1"
+            "SELECT Date, {selectable_columns} FROM rates WHERE Date < ?1 AND Interpolated = false ORDER BY Date DESC LIMIT 1"
         )
         .as_ref(),
     )?;
 
     let mut next_neighbor_stmt = conn.prepare(
-        format!("SELECT Date, {selectable_columns} FROM rates WHERE Date > ?1 ORDER BY Date ASC LIMIT 1")
+        format!("SELECT Date, {selectable_columns} FROM rates WHERE Date > ?1 AND Interpolated = false ORDER BY Date ASC LIMIT 1")
             .as_ref(),
     )?;
 
     let (prev_date, prev_rates) = prev_neighbor_stmt.query_row([on.to_string()], |row| {
-        let row = dbg!(row);
         row_to_exchange_rates(row, currencies).and_then(|rates| {
             let date = NaiveDate::parse_from_str(row.get::<usize, String>(0)?.as_str(), "%Y-%m-%d")
                 .expect("not a date oh no");
@@ -127,7 +126,6 @@ fn fetch_neighboring_rates<'c>(
         })
     })?;
     let (next_date, next_rates) = next_neighbor_stmt.query_row([on.to_string()], |row| {
-        let row = dbg!(row);
         row_to_exchange_rates(row, currencies).and_then(|rates| {
             let date = NaiveDate::parse_from_str(row.get::<usize, String>(0)?.as_str(), "%Y-%m-%d")
                 .expect("not a date oh no");
@@ -144,6 +142,7 @@ fn fetch_neighboring_rates<'c>(
     })
 }
 
+#[derive(Debug)]
 pub(crate) enum InterpolationError {
     MissingRate,
     SameCurrency,
@@ -193,27 +192,27 @@ fn interpolate_rates<'c>(
                             .convert(Money::from_decimal(dec!(1), currency))
                             .unwrap()
                             .amount();
-                    let x1 = dbg!(Decimal::new(
+                    let x1 = Decimal::new(
                         neighbors
                             .prev_date
                             .signed_duration_since(NaiveDate::from_ymd_opt(1999, 1, 4).unwrap())
                             .num_days(),
-                        0
-                    ));
-                    let x3 = dbg!(Decimal::new(
+                        0,
+                    );
+                    let x3 = Decimal::new(
                         neighbors
                             .missing_date
                             .signed_duration_since(NaiveDate::from_ymd_opt(1999, 1, 4).unwrap())
                             .num_days(),
-                        0
-                    ));
-                    let x2 = dbg!(Decimal::new(
+                        0,
+                    );
+                    let x2 = Decimal::new(
                         neighbors
                             .next_date
                             .signed_duration_since(NaiveDate::from_ymd_opt(1999, 1, 4).unwrap())
                             .num_days(),
-                        0
-                    ));
+                        0,
+                    );
 
                     let slope = (y2 - y1) / (x2 - x1);
                     let y3 = y1 + slope * (x3 - x1);
@@ -228,15 +227,15 @@ fn interpolate_rates<'c>(
                     exchange_rates
                 }
                 (Ok(_), Err(_)) => {
-                    exchange_rates.push(Err(InterpolationError::MissingRate));
+                    // exchange_rates.push(Err(InterpolationError::MissingRate));
                     exchange_rates
                 }
                 (Err(_), Ok(_)) => {
-                    exchange_rates.push(Err(InterpolationError::MissingRate));
+                    // exchange_rates.push(Err(InterpolationError::MissingRate));
                     exchange_rates
                 }
                 (Err(_), Err(_)) => {
-                    exchange_rates.push(Err(InterpolationError::MissingRate));
+                    // exchange_rates.push(Err(InterpolationError::MissingRate));
                     exchange_rates
                 }
             }
@@ -256,14 +255,15 @@ fn row_to_exchange_rates<'c>(
         .enumerate()
         .fold(Vec::new(), |mut rates, (index, currency)| {
             // Plus one because we want to ignore the date in this case.
-            match row.get::<usize, String>(index + 1) {
-                Ok(rate) => {
+            match row.get::<usize, Option<String>>(index + 1) {
+                Ok(Some(rate)) => {
                     let (to_eur, from_eur) = parse_rate(currency, rate);
                     rates.push(Ok(to_eur));
                     rates.push(Ok(from_eur));
 
                     rates
                 }
+                Ok(None) => rates,
                 Err(e) => {
                     rates.push(Err(e));
 
@@ -281,7 +281,9 @@ fn row_to_exchange_rates<'c>(
 pub(crate) fn seed_db(conn: &Connection, data_dir: &Path) -> Result<(), rusqlite::Error> {
     let csv_path = data_dir.join("eurofxref-hist.csv");
 
-    copy_from_csv(conn, &csv_path).and_then(|_| clean_up_na(conn))
+    copy_from_csv(conn, &csv_path)
+        .and_then(|_| clean_up_na(conn))
+        .and_then(|_| precompute_interpolated_rates(conn))
 }
 
 /// Parses a currency rate into bidirectional exchange rates
@@ -343,6 +345,111 @@ fn clean_up_na(conn: &Connection) -> Result<(), rusqlite::Error> {
 
     let statements = format!("BEGIN; \n{statements}\nCOMMIT;");
     (*conn).execute_batch(statements.as_ref())
+}
+
+fn precompute_interpolated_rates(conn: &Connection) -> Result<(), rusqlite::Error> {
+    let currencies = [
+        iso::USD,
+        iso::JPY,
+        iso::BGN,
+        iso::CZK,
+        iso::DKK,
+        iso::GBP,
+        iso::HUF,
+        iso::PLN,
+        iso::RON,
+        iso::SEK,
+        iso::SKK,
+        iso::CHF,
+        iso::ISK,
+        iso::NOK,
+        iso::HRK,
+        iso::RUB,
+        iso::TRY,
+        iso::AUD,
+        iso::BRL,
+        iso::CAD,
+        iso::CNY,
+        iso::HKD,
+        iso::IDR,
+        iso::ILS,
+        iso::INR,
+        iso::KRW,
+        iso::MXN,
+        iso::MYR,
+        iso::NZD,
+        iso::PHP,
+        iso::SGD,
+        iso::THB,
+        iso::ZAR,
+    ];
+
+    conn.execute_batch(
+        "
+        BEGIN;
+            ALTER TABLE rates ADD COLUMN Interpolated BOOLEAN;
+            UPDATE rates SET Interpolated = false;
+        COMMIT;
+    ",
+    )?;
+
+    let selectable_columns = currencies.map(|c| c.iso_alpha_code).join(", ");
+    let mut first_date_statement = conn.prepare("SELECT Date FROM rates ORDER BY Date ASC")?;
+    let mut latest_date_statement = conn.prepare("SELECT Date FROM rates ORDER BY Date DESC")?;
+    let first_date = first_date_statement.query_row((), |row| row.get::<usize, String>(0))?;
+    let first_date = NaiveDate::parse_from_str(first_date.as_str(), "%Y-%m-%d").expect("");
+    let latest_date = latest_date_statement.query_row((), |row| row.get::<usize, String>(0))?;
+    let latest_date = NaiveDate::parse_from_str(latest_date.as_str(), "%Y-%m-%d").expect("");
+
+    first_date
+        .iter_days()
+        // Skip the first date since the first date should always have a rate
+        .skip(1)
+        // Take until before the latest date since it also should always have
+        // a rate
+        .take_while(|date| *date < latest_date)
+        .for_each(|date| {
+            dbg!(date);
+            let neighbors = fetch_neighboring_rates(conn, &currencies, date)
+                .expect("Unable to fetch neighboring rates");
+            let rates =
+                interpolate_rates(&currencies, neighbors).expect("Unable to interpolate rates");
+
+            let exchange = rates.iter().fold(Exchange::new(), |mut exchange, rate| {
+                exchange.set_rate(rate);
+                exchange
+            });
+
+            let currency_values_str = currencies
+                .iter()
+                .map(|currency| {
+                    let rate =
+                        exchange.get_rate(iso::EUR, currency).and_then(|rate| {
+                            rate
+                            .convert(Money::from_decimal(dec!(1), iso::EUR))
+                            .ok()
+                        })
+                        .map(|money| *money.amount());
+
+                    match rate {
+                        Some(rate) => rate.to_string(),
+                        None => String::from("null")
+                    }
+                })
+                .collect::<Vec<_>>()
+                .join(", ");
+
+            let script = format!(
+                "INSERT INTO rates(Date, Interpolated, {selectable_columns}) VALUES ('{}', true, {}) ON CONFLICT DO NOTHING",
+                date,
+                currency_values_str
+            );
+
+            conn.execute_batch(script.as_str())
+                .expect("Unable to insert interpolated rates for {date.to_string()}");
+        });
+
+    Ok(())
 }
 
 #[cfg(test)]
