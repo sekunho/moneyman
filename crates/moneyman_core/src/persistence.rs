@@ -21,7 +21,7 @@ struct Neighbors<'c> {
 /// will ignore EUR.
 pub(crate) fn find_rates<'c>(
     conn: &Connection,
-    currencies: Vec<&'c Currency>,
+    currencies: &[&'c Currency],
     on: NaiveDate,
 ) -> Result<Vec<ExchangeRate<'c, Currency>>, rusqlite::Error> {
     let filtered_currencies: Vec<String> = currencies
@@ -37,11 +37,11 @@ pub(crate) fn find_rates<'c>(
     let selectable_columns = filtered_currencies.join(", ");
 
     let mut stmt = conn
-        .prepare(format!("SELECT Date, {selectable_columns} FROM rates WHERE date = ?1").as_ref())
+        .prepare(format!("SELECT Date, {selectable_columns} FROM rates WHERE Date = ?1 AND Interpolated = false").as_ref())
         .expect("oh no");
 
     stmt.query_row([on.to_string()], |row| {
-        row_to_exchange_rates(row, currencies.as_slice())
+        row_to_exchange_rates(row, currencies)
     })
 }
 
@@ -62,9 +62,9 @@ impl From<rusqlite::Error> for FallbackRateError {
 /// latest row.
 pub(crate) fn find_rates_with_fallback<'c>(
     conn: &Connection,
-    currencies: Vec<&'c Currency>,
+    currencies: &[&'c Currency],
     on: NaiveDate,
-) -> Result<Vec<ExchangeRate<'c, Currency>>, FallbackRateError> {
+) -> Result<Vec<ExchangeRate<'c, Currency>>, rusqlite::Error> {
     let filtered_currencies: Vec<String> = currencies
         .iter()
         .filter_map(|c| {
@@ -78,20 +78,12 @@ pub(crate) fn find_rates_with_fallback<'c>(
     let selectable_columns = filtered_currencies.join(", ");
 
     let mut stmt = conn
-        .prepare(format!("SELECT Date, {selectable_columns} FROM rates WHERE date = ?1").as_ref())
+        .prepare(format!("SELECT Date, {selectable_columns} FROM rates WHERE Date = ?1").as_ref())
         .expect("oh no");
 
-    match stmt.query_row([on.to_string()], |row| {
-        row_to_exchange_rates(row, currencies.as_slice())
-    }) {
-        Ok(currs) => Ok(currs),
-        Err(rusqlite::Error::QueryReturnedNoRows) => {
-            let neighbors = fetch_neighboring_rates(conn, currencies.as_slice(), on)?;
-            interpolate_rates(currencies.as_slice(), neighbors)
-                .map_err(FallbackRateError::Interpolation)
-        }
-        Err(e) => Err(FallbackRateError::Db(e)),
-    }
+    stmt.query_row([on.to_string()], |row| {
+        row_to_exchange_rates(row, currencies)
+    })
 }
 
 // Fetches the neighboring rates (previous and next) of the missing date.
