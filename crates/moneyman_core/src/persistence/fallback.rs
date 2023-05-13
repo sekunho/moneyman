@@ -31,7 +31,13 @@ pub(crate) fn fetch_neighboring_rates<'c>(
 
     let mut prev_neighbor_stmt = conn.prepare(
         format!(
-            "SELECT Date, {selectable_columns} FROM rates WHERE Date < ?1 AND Interpolated = false ORDER BY Date DESC LIMIT 1"
+            "
+            SELECT Date, {selectable_columns}
+                FROM rates
+                WHERE Date < ?1
+                    AND Interpolated = false
+                ORDER BY Date DESC LIMIT 1
+        "
         )
         .as_ref(),
     )?;

@@ -129,7 +129,8 @@ fn precompute_interpolated_rates(conn: &Connection) -> Result<(), rusqlite::Erro
             let neighbors = fetch_neighboring_rates(conn, &currencies, date)
                 .expect("Unable to fetch neighboring rates");
             let rates =
-                persistence::fallback::interpolate_rates(&currencies, neighbors).expect("Unable to interpolate rates");
+                persistence::fallback::interpolate_rates(&currencies, neighbors)
+                .expect("Unable to interpolate rates");
 
             let exchange = rates.iter().fold(Exchange::new(), |mut exchange, rate| {
                 exchange.set_rate(rate);
