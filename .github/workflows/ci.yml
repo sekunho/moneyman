@@ -37,7 +37,7 @@ jobs:
       run: nix build .#packages.x86_64-linux.moneyman
 
     - name: Formatting
-      run: nix develop .#devShells.x86_64-linux.ci --command bash -c "rustfmt --check crates/**/src/*"
+      run: nix develop .#devShells.x86_64-linux.ci --command bash -c "rustfmt --check crates/**/src/**/*"
 
     - name: Clippy, the final gatekeeper
       run: nix develop .#devShells.x86_64-linux.ci --command bash -c "cargo clippy -- -Dwarnings"
