@@ -53,7 +53,7 @@ impl ExchangeStore {
         let conn = Connection::open(db_path).map_err(|_| SyncError::CouldNotRead)?;
         let store = ExchangeStore { conn, data_dir };
 
-        persistence::seed_db(&store.conn, &store.data_dir).map_err(|_| SyncError::Seed)?;
+        persistence::seed::seed_db(&store.conn, &store.data_dir).map_err(|_| SyncError::Seed)?;
 
         Ok(store)
     }
@@ -152,7 +152,11 @@ impl ExchangeStore {
         on_date: NaiveDate,
     ) -> Result<Money<'c, Currency>, ConversionError> {
         let find_rates = |currencies: Vec<&'c Currency>| {
-            persistence::find_rates_with_fallback(&self.conn, currencies.as_slice(), on_date)
+            persistence::exchange_rate::find_rates_with_fallback(
+                &self.conn,
+                currencies.as_slice(),
+                on_date,
+            )
         };
 
         self.convert(from_amount, to_currency, on_date, find_rates)
@@ -168,7 +172,7 @@ impl ExchangeStore {
         on_date: NaiveDate,
     ) -> Result<Money<'c, Currency>, ConversionError> {
         let find_rates = |currencies: Vec<&'c Currency>| {
-            persistence::find_rates(&self.conn, currencies.as_slice(), on_date)
+            persistence::exchange_rate::find_rates(&self.conn, currencies.as_slice(), on_date)
         };
 
         self.convert(from_amount, to_currency, on_date, find_rates)
