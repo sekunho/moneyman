@@ -114,9 +114,9 @@ pub(crate) fn parse_rate(
 
 #[cfg(test)]
 mod tests {
+    use super::*;
     use rust_decimal_macros::dec;
     use rusty_money::{iso, ExchangeRate};
-    use super::*;
 
     #[test]
     fn it_parses_rate_into_bidirectional_rates() {
