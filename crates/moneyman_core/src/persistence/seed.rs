@@ -124,10 +124,10 @@ fn precompute_interpolated_rates(conn: &Connection) -> Result<(), rusqlite::Erro
         // Take until before the latest date since it also should always have
         // a rate
         .take_while(|date| *date < latest_date)
-        .for_each(|date| {
-            dbg!(date);
-            let neighbors = fetch_neighboring_rates(conn, &currencies, date)
-                .expect("Unable to fetch neighboring rates");
+        .map(|date| {
+            let neighbors = fetch_neighboring_rates(conn, &currencies, date)?;
+
+            // FIXME: Need to find a way to get rid of this `.expect()`
             let rates = persistence::fallback::interpolate_rates(&currencies, neighbors)
                 .expect("Unable to interpolate rates");
 
@@ -162,8 +162,8 @@ fn precompute_interpolated_rates(conn: &Connection) -> Result<(), rusqlite::Erro
             );
 
             conn.execute_batch(script.as_str())
-                .expect("Unable to insert interpolated rates for {date.to_string()}");
-        });
+        })
+        .collect::<Result<Vec<_>, rusqlite::Error>>()?;
 
     Ok(())
 }
