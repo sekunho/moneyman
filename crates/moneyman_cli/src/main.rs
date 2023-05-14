@@ -107,8 +107,7 @@ fn init_or_get_store(data_dir: PathBuf) -> ExchangeStore {
     if !data_dir.join("eurofxref-hist.db3").exists() {
         println!("Running initial sync with ECB...");
 
-        let (store, latest_date) =
-            moneyman::ExchangeStore::sync(data_dir).expect("failed ze sync");
+        let (store, latest_date) = moneyman::ExchangeStore::sync(data_dir).expect("failed ze sync");
 
         println!(
             "Completed initial sync with ECB history. Latest exchange rate date: {}",
