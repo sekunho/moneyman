@@ -27,7 +27,17 @@ pub(crate) fn find_rates<'c>(
     let selectable_columns = filtered_currencies.join(", ");
 
     let mut stmt = conn
-        .prepare(format!("SELECT Date, {selectable_columns} FROM rates WHERE Date = ?1 AND Interpolated = false").as_ref())
+        .prepare(
+            format!(
+                "
+                SELECT Date, {selectable_columns}
+                    FROM rates
+                    WHERE Date = ?1
+                        AND Interpolated = false
+                "
+            )
+            .as_ref(),
+        )
         .expect("oh no");
 
     stmt.query_row([on.to_string()], |row| {

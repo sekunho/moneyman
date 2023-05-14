@@ -15,6 +15,7 @@ pub(crate) enum InterpolationError {
     SameCurrency,
 }
 
+#[derive(Debug)]
 pub(crate) struct Neighbors<'c> {
     pub prev_rates: Vec<ExchangeRate<'c, Currency>>,
     pub prev_date: NaiveDate,

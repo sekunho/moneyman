@@ -35,7 +35,12 @@ fn copy_from_csv(conn: &Connection, csv_path: &Path) -> Result<(), rusqlite::Err
 
             CREATE TABLE rates AS SELECT * FROM vrates;
 
-            CREATE UNIQUE INDEX date_index ON rates(Date);
+            ALTER TABLE rates ADD COLUMN Interpolated BOOLEAN;
+            ALTER TABLE rates DROP COLUMN \"\";
+
+            UPDATE rates SET Interpolated = false;
+
+            CREATE UNIQUE INDEX date_index ON rates(Date, Interpolated);
 
             DROP TABLE vrates;
         COMMIT;
@@ -100,22 +105,13 @@ fn precompute_interpolated_rates(conn: &Connection) -> Result<(), rusqlite::Erro
         iso::ZAR,
     ];
 
-    conn.execute_batch(
-        "
-        BEGIN;
-            ALTER TABLE rates ADD COLUMN Interpolated BOOLEAN;
-            UPDATE rates SET Interpolated = false;
-        COMMIT;
-    ",
-    )?;
-
     let selectable_columns = currencies.map(|c| c.iso_alpha_code).join(", ");
 
     let mut first_date_statement = conn.prepare("SELECT Date FROM rates ORDER BY Date ASC")?;
     let mut latest_date_statement = conn.prepare("SELECT Date FROM rates ORDER BY Date DESC")?;
 
-    let first_date = first_date_statement.query_row((), |row| row.get::<usize, NaiveDate>(0))?;
-    let latest_date = latest_date_statement.query_row((), |row| row.get::<usize, NaiveDate>(0))?;
+    let first_date = dbg!(first_date_statement.query_row((), |row| row.get::<usize, NaiveDate>(0)))?;
+    let latest_date = dbg!(latest_date_statement.query_row((), |row| row.get::<usize, NaiveDate>(0)))?;
 
     first_date
         .iter_days()
@@ -125,6 +121,7 @@ fn precompute_interpolated_rates(conn: &Connection) -> Result<(), rusqlite::Erro
         // a rate
         .take_while(|date| *date < latest_date)
         .map(|date| {
+            dbg!(date);
             let neighbors = fetch_neighboring_rates(conn, &currencies, date)?;
 
             // FIXME: Need to find a way to get rid of this `.expect()`

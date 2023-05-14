@@ -19,3 +19,9 @@ rust-project.json
 ### nix ###
 .direnv
 result
+
+### Misc. ###
+flamegraph.svg
+perf.*
+*.csv
+*.db3

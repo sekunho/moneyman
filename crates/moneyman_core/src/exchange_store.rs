@@ -47,13 +47,13 @@ impl ExchangeStore {
     /// Syncs the local data store's currency exchange data with the European
     /// Central Bank.
     pub fn sync(data_dir: PathBuf) -> Result<Self, SyncError> {
-        ecb::download_latest_history(&data_dir).map_err(|_| SyncError::Download)?;
+        ecb::download_latest_history(&data_dir).map_err(|_e| SyncError::Download)?;
 
         let db_path = data_dir.join("eurofxref-hist.db3");
         let conn = Connection::open(db_path).map_err(|_| SyncError::CouldNotRead)?;
         let store = ExchangeStore { conn, data_dir };
 
-        persistence::seed::seed_db(&store.conn, &store.data_dir).map_err(|_| SyncError::Seed)?;
+        persistence::seed::seed_db(&store.conn, &store.data_dir).map_err(|_e| SyncError::Seed)?;
 
         Ok(store)
     }
@@ -80,7 +80,7 @@ impl ExchangeStore {
         find_rates: F,
     ) -> Result<Money<'c, Currency>, ConversionError>
     where
-        F: Fn(Vec<&'c Currency>) -> Result<Vec<ExchangeRate<'c, Currency>>, rusqlite::Error>,
+        F: FnOnce(Vec<&'c Currency>) -> Result<Vec<ExchangeRate<'c, Currency>>, rusqlite::Error>,
     {
         let from_currency = from_amount.currency();
         match (from_currency, to_currency) {
