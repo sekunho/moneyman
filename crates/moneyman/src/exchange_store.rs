@@ -46,7 +46,7 @@ pub enum ConversionError {
 impl ExchangeStore {
     /// Syncs the local data store's currency exchange data with the European
     /// Central Bank.
-    pub fn sync(data_dir: PathBuf) -> Result<Self, SyncError> {
+    pub fn sync(data_dir: PathBuf) -> Result<(Self, NaiveDate), SyncError> {
         ecb::download_latest_history(&data_dir).map_err(|_e| SyncError::Download)?;
 
         let db_path = data_dir.join("eurofxref-hist.db3");
@@ -55,7 +55,9 @@ impl ExchangeStore {
 
         persistence::seed::seed_db(&store.conn, &store.data_dir).map_err(|_e| SyncError::Seed)?;
 
-        Ok(store)
+        let latest_date = store.get_latest_date().ok_or(SyncError::CouldNotRead)?;
+
+        Ok((store, latest_date))
     }
 
     /// Creates a new instance based on the existing data store. If you need

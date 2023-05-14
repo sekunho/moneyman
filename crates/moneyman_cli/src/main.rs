@@ -4,7 +4,7 @@ use std::path::PathBuf;
 
 use chrono::NaiveDate;
 use currency::Currency;
-use moneyman::ConversionError;
+use moneyman::{ConversionError, ExchangeStore};
 use rust_decimal::Decimal;
 
 use clap::{Command, Parser, Subcommand};
@@ -28,6 +28,10 @@ enum Commands {
         #[arg(short, long)]
         /// Don't do this unless you known the exchange store is messed up
         force: bool,
+
+        /// Where moneyman will save its local data store. Default: ~/.moneyman
+        #[arg(long, value_name = "DIRECTORY_PATH")]
+        data_dir: Option<PathBuf>,
     },
     /// Convert one currency to another
     Convert {
@@ -99,18 +103,30 @@ fn print_result_no_fallback(
     }
 }
 
+fn init_or_get_store(data_dir: PathBuf) -> ExchangeStore {
+    if !data_dir.join("eurofxref-hist.db3").exists() {
+        println!("Running initial sync with ECB...");
+
+        let (store, latest_date) =
+            moneyman::ExchangeStore::sync(data_dir.clone()).expect("failed ze sync");
+
+        println!(
+            "Completed initial sync with ECB history. Latest exchange rate date: {}",
+            latest_date
+        );
+
+        store
+    } else {
+        moneyman::ExchangeStore::open(data_dir.clone()).expect("failed to open local store")
+    }
+}
+
 fn main() {
     let cli = Cli::parse();
 
     let data_dir: PathBuf = dirs::home_dir()
         .map(|home_dir| home_dir.join(".moneyman"))
         .expect("need a home directory");
-
-    let store = if !data_dir.join("eurofxref-hist.db3").exists() {
-        moneyman::ExchangeStore::sync(data_dir).expect("failed ze sync")
-    } else {
-        moneyman::ExchangeStore::open(data_dir).expect("huh")
-    };
 
     match cli.commands {
         // If the `--on` arg is specified
@@ -123,6 +139,7 @@ fn main() {
             data_dir: None,
         }) => {
             let from_money = Money::from_decimal(amount, &from.0);
+            let store = init_or_get_store(data_dir);
             let to_money = store.convert_on_date(from_money.clone(), &to.0, date);
             print_result_no_fallback(from_money, to_money, date);
         }
@@ -136,6 +153,7 @@ fn main() {
             data_dir: None,
         }) => {
             let from_money = Money::from_decimal(amount, &from.0);
+            let store = init_or_get_store(data_dir);
 
             match store.get_latest_date() {
                 Some(date) => {
@@ -155,6 +173,7 @@ fn main() {
             fallback: true,
             data_dir: None,
         }) => {
+            let store = init_or_get_store(data_dir);
             let from_money = Money::from_decimal(amount, &from.0);
             let to_money = store.convert_on_date_with_fallback(from_money.clone(), &to.0, date);
             print_result_no_fallback(from_money, to_money, date);
@@ -168,6 +187,7 @@ fn main() {
             fallback: true,
             data_dir: None,
         }) => {
+            let store = init_or_get_store(data_dir);
             let from_money = Money::from_decimal(amount, &from.0);
 
             match store.get_latest_date() {
@@ -178,6 +198,40 @@ fn main() {
                 }
                 None => {
                     println!("Unable to fetch the latest date from the local data store. Have you tried syncing it with ECB?");
+                }
+            }
+        }
+
+        Some(Commands::Sync {
+            force,
+            data_dir: None,
+        }) => {
+            if force {
+                let op = std::fs::remove_file(data_dir.join("eurofxref-hist.db3"))
+                    .and_then(|_| std::fs::remove_file(data_dir.join("eurofxref-hist.csv")));
+
+                match op {
+                    Ok(_) => {
+                        println!("Deleted local data store files");
+                        println!("Syncing with ECB...");
+                        match moneyman::ExchangeStore::sync(data_dir) {
+                            Ok((_store, latest_date)) => println!(
+                                "Successfully synced with ECB. Latest exchange rate date: {}",
+                                latest_date
+                            ),
+                            Err(err) => println!("{}", err),
+                        }
+                    }
+                    Err(_) => println!("Unable to delete local data store files"),
+                }
+            } else {
+                println!("Syncing with ECB...");
+                match moneyman::ExchangeStore::sync(data_dir) {
+                    Ok((_store, latest_date)) => println!(
+                        "Successfully synced with ECB. Latest exchange rate date: {}",
+                        latest_date
+                    ),
+                    Err(err) => println!("{}", err),
                 }
             }
         }
