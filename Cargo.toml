@@ -13,7 +13,7 @@ readme = "README.md"
 moneyman = { path = "crates/moneyman", version = "0.1" }
 
 ## HTTP client
-reqwest = { version = "0.11", features = [ "blocking" ] }
+reqwest = { version = "0.11", features = [ "blocking", "rustls-tls" ], default-features = false }
 
 ## Bytes data type
 bytes = { version = "1.4" }
@@ -28,10 +28,11 @@ rusty-money = { version = "0.4" }
 chrono = "0.4"
 
 ## Because I don't want to deal with CSVs, even via polars lol
-rusqlite = { version = "0.29", features = ["bundled", "vtab", "csvtab", "chrono" ] }
+rusqlite = { version = "0.29", features = ["bundled-full", "vtab", "csvtab", "chrono"]  }
+
+libsqlite3-sys = { version = "*", features = [ "bundled" ]  }
 
 ## Decimal data type
-rust_decimal_macros = "1.29"
 rust_decimal = "1.29"
 
 ## directory stuff
@@ -40,8 +41,10 @@ dirs = "5.0"
 ## For less error boilerplate
 thiserror = "1.0"
 
+## CLI
 clap = { version = "4.2", features = ["derive"] }
 
 [profile.release]
+opt-level = 'z'
 lto = true
 codegen-units = 1

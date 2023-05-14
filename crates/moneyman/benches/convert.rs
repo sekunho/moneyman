@@ -3,11 +3,11 @@ use std::path::PathBuf;
 use chrono::NaiveDate;
 use criterion::{black_box, criterion_group, criterion_main, Criterion};
 use moneyman::ExchangeStore;
-use rust_decimal_macros::dec;
+use rust_decimal::Decimal;
 use rusty_money::{iso, Money};
 
 pub fn non_indexed_convert_on_date(c: &mut Criterion) {
-    let amount_in_usd = Money::from_decimal(dec!(6500), iso::USD);
+    let amount_in_usd = Money::from_decimal(Decimal::from(6500), iso::USD);
     let date = NaiveDate::from_ymd_opt(1999, 1, 4).expect("ok date");
     let data_dir = PathBuf::new()
         .join("..")
@@ -24,7 +24,7 @@ pub fn non_indexed_convert_on_date(c: &mut Criterion) {
 }
 
 pub fn non_indexed_convert_on_date_non_euro(c: &mut Criterion) {
-    let amount_in_usd = Money::from_decimal(dec!(6500), iso::USD);
+    let amount_in_usd = Money::from_decimal(Decimal::from(6500), iso::USD);
     let date = NaiveDate::from_ymd_opt(1999, 1, 4).expect("ok date");
     let data_dir = PathBuf::new()
         .join("..")
@@ -41,7 +41,7 @@ pub fn non_indexed_convert_on_date_non_euro(c: &mut Criterion) {
 }
 
 pub fn indexed_convert_on_date(c: &mut Criterion) {
-    let amount_in_usd = Money::from_decimal(dec!(6500), iso::USD);
+    let amount_in_usd = Money::from_decimal(Decimal::from(6500), iso::USD);
     let date = NaiveDate::from_ymd_opt(1999, 1, 4).expect("ok date");
     let data_dir = PathBuf::new()
         .join("..")
@@ -58,7 +58,7 @@ pub fn indexed_convert_on_date(c: &mut Criterion) {
 }
 
 pub fn indexed_convert_on_date_non_euro(c: &mut Criterion) {
-    let amount_in_usd = Money::from_decimal(dec!(6500), iso::USD);
+    let amount_in_usd = Money::from_decimal(Decimal::from(6500), iso::USD);
     let date = NaiveDate::from_ymd_opt(1999, 1, 4).expect("ok date");
     let data_dir = PathBuf::new()
         .join("..")

@@ -200,7 +200,7 @@ mod tests {
 
     use chrono::NaiveDate;
     use rand::distributions::{Alphanumeric, DistString};
-    use rust_decimal_macros::dec;
+    use rust_decimal::Decimal;
     use rusty_money::{iso, Money};
 
     use crate::exchange_store::{ConversionError, ExchangeStore};
@@ -231,12 +231,12 @@ mod tests {
         assert!(data_dir.exists());
 
         let store = ExchangeStore::open(data_dir).unwrap();
-        let amount_in_eur = Money::from_decimal(dec!(1000), iso::EUR);
+        let amount_in_eur = Money::from_decimal(Decimal::from(1000), iso::EUR);
         let date = NaiveDate::from_ymd_opt(2023, 05, 04).unwrap();
         let amount_in_usd = store
             .convert_on_date(amount_in_eur, iso::USD, date)
             .unwrap();
-        let expected_amount = Money::from_decimal(dec!(1000) * dec!(1.1074), iso::USD);
+        let expected_amount = Money::from_decimal(Decimal::from(1000) * Decimal::from_f32_retain(1.1074).unwrap(), iso::USD);
 
         assert_eq!(expected_amount, amount_in_usd);
     }
@@ -253,7 +253,7 @@ mod tests {
         assert!(data_dir.exists());
 
         let store = ExchangeStore::open(data_dir).unwrap();
-        let amount_in_eur = Money::from_decimal(dec!(1000), iso::EUR);
+        let amount_in_eur = Money::from_decimal(Decimal::from(1000), iso::EUR);
         let date = NaiveDate::from_ymd_opt(2023, 05, 06).unwrap();
 
         match dbg!(store.convert_on_date(amount_in_eur, iso::USD, date)) {

@@ -11,10 +11,10 @@ readme.workspace = true
 
 [dependencies]
 rusty-money = { workspace = true }
-rust_decimal_macros = { workspace = true }
 rust_decimal = { workspace = true }
 chrono = { workspace = true }
 rusqlite = { workspace = true }
+libsqlite3-sys = { workspace = true }
 thiserror = { workspace = true }
 reqwest = { workspace = true }
 bytes = { workspace = true }

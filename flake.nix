@@ -45,11 +45,24 @@
 
             src = ./.;
             doCheck = false;
-            nativeBuildInputs = with pkgs; [ pkgsStatic.stdenv.cc openssl pkg-config ];
-            buildInputs = [ ];
 
             CARGO_BUILD_TARGET = "x86_64-unknown-linux-musl";
             CARGO_BUILD_RUSTFLAGS = "-C target-feature=+crt-static";
+
+            nativeBuildInputs = with pkgs; [
+              pkgsStatic.stdenv.cc
+              # pkgsStatic.pkg-config
+              pkgsStatic.sqlite
+              pkgsStatic.sqlite.dev
+            ];
+
+            buildInputs = with pkgs; [
+              pkgsStatic.stdenv.cc
+              # pkgsStatic.pkg-config
+              pkgsStatic.sqlite
+              pkgsStatic.sqlite.dev
+
+            ];
           };
         };
       };
@@ -61,9 +74,6 @@
             fenix'.stable.cargo
             fenix'.stable.clippy
             fenix'.stable.rustfmt
-
-            pkgs.openssl
-            pkgs.pkg-config
           ];
         };
 
@@ -80,10 +90,7 @@
           nixPackages = with pkgs; [ nil ];
 
           misc = with pkgs; [
-            openssl
-            pkg-config
-            sqlite
-            self.packages.${system}.moneyman
+            pkgsStatic.sqlite
           ];
         in pkgs.mkShell {
           buildInputs = rustPackages ++ nixPackages ++ misc;
