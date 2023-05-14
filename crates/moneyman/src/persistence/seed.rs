@@ -94,7 +94,7 @@ fn copy_from_csv(conn: &Connection, csv_path: &Path) -> Result<NaiveDate, rusqli
 
                 ",
                 csv_path.to_str().expect("expected a UTF-8 path"),
-                latest_date.succ_opt().unwrap().to_string()
+                latest_date.succ_opt().unwrap()
             );
 
             conn.execute_batch(script.as_str())?;
