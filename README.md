@@ -1,7 +1,8 @@
 # 💱 moneyman
 
-![Crates.io](https://img.shields.io/crates/v/moneyman?label=moneyman&style=for-the-badge)
-![Crates.io](https://img.shields.io/crates/v/moneyman_cli?label=moneyman_cli&style=for-the-badge)
+![Crates.io](https://img.shields.io/crates/v/moneyman?label=moneyman&style=flat-square)
+![docs.rs](https://img.shields.io/docsrs/moneyman?style=flat-square)
+![Crates.io](https://img.shields.io/crates/v/moneyman_cli?label=moneyman_cli&style=flat-square)
 
 A crusty currency converter
 
