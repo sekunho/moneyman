@@ -138,13 +138,13 @@ mod tests {
         let expected1 = ExchangeRate::new(
             iso::USD,
             iso::EUR,
-            Decimal::from(1) / Decimal::from_f64_retain(1.1037).unwrap(),
+            Decimal::from(1) / Decimal::from_i128_with_scale(11037, 4),
         )
         .unwrap();
         let expected2 = ExchangeRate::new(
             iso::EUR,
             iso::USD,
-            Decimal::from_f64_retain(1.1037).unwrap(),
+            Decimal::from_i128_with_scale(11037, 4),
         )
         .unwrap();
 

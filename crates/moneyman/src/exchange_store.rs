@@ -236,7 +236,7 @@ mod tests {
         let amount_in_usd = store
             .convert_on_date(amount_in_eur, iso::USD, date)
             .unwrap();
-        let expected_amount = Money::from_decimal(Decimal::from(1000) * Decimal::from_f32_retain(1.1074).unwrap(), iso::USD);
+        let expected_amount = dbg!(Money::from_decimal(Decimal::from(1000) * Decimal::from_i128_with_scale(11074, 4), iso::USD));
 
         assert_eq!(expected_amount, amount_in_usd);
     }
