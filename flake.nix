@@ -72,6 +72,7 @@
             clippy
             rustfmt
             pkgs.rust-analyzer
+            pkgs.cargo-flamegraph
           ];
 
           nixPackages = with pkgs; [ nil ];

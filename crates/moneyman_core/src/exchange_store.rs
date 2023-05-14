@@ -4,7 +4,7 @@ use chrono::NaiveDate;
 use rusqlite::Connection;
 use rusty_money::{
     iso::{self, Currency},
-    Exchange, Money,
+    Exchange, ExchangeRate, Money,
 };
 use thiserror::Error;
 
@@ -47,13 +47,13 @@ impl ExchangeStore {
     /// Syncs the local data store's currency exchange data with the European
     /// Central Bank.
     pub fn sync(data_dir: PathBuf) -> Result<Self, SyncError> {
-        ecb::download_latest_history(&data_dir).map_err(|_| SyncError::Download)?;
+        ecb::download_latest_history(&data_dir).map_err(|_e| SyncError::Download)?;
 
         let db_path = data_dir.join("eurofxref-hist.db3");
         let conn = Connection::open(db_path).map_err(|_| SyncError::CouldNotRead)?;
         let store = ExchangeStore { conn, data_dir };
 
-        persistence::seed_db(&store.conn, &store.data_dir).map_err(|_| SyncError::Seed)?;
+        persistence::seed::seed_db(&store.conn, &store.data_dir).map_err(|_e| SyncError::Seed)?;
 
         Ok(store)
     }
@@ -69,31 +69,35 @@ impl ExchangeStore {
         Ok(ExchangeStore { conn, data_dir })
     }
 
-    pub fn convert_on_date<'a>(
+    /// This is the "generic" version of the convert function. Along with the
+    /// usual data needed to convert two currencies, it also needs you to
+    /// provide a closure that returns the exchange rates.
+    fn convert<'c, F>(
         &self,
-        from_amount: Money<'a, Currency>,
-        to_currency: &'a Currency,
+        from_amount: Money<'c, Currency>,
+        to_currency: &'c Currency,
         on_date: NaiveDate,
-    ) -> Result<Money<'a, Currency>, ConversionError> {
+        find_rates: F,
+    ) -> Result<Money<'c, Currency>, ConversionError>
+    where
+        F: FnOnce(Vec<&'c Currency>) -> Result<Vec<ExchangeRate<'c, Currency>>, rusqlite::Error>,
+    {
         let from_currency = from_amount.currency();
-
         match (from_currency, to_currency) {
             (from, to) if from == to => Ok(from_amount),
+            // FIXME: Split OR pattern, and factor out to/from EUR conversion
             (from @ iso::EUR, to) | (from, to @ iso::EUR) => {
                 let currencies = match to {
                     iso::EUR => Vec::from([from]),
                     _ => Vec::from([to]),
                 };
-                let rates = persistence::find_rates_of_currencies(&self.conn, currencies, on_date)
-                    .map_err(|err| match err {
-                        rusqlite::Error::QueryReturnedNoRows => {
-                            ConversionError::NoExchangeRate(on_date)
-                        }
-                        _ => ConversionError::MalformedExchangeStore,
-                    })?;
-                let mut exchange = Exchange::new();
-
-                rates.iter().for_each(|rate| exchange.set_rate(rate));
+                let rates = find_rates(currencies).map_err(|err| match err {
+                    rusqlite::Error::QueryReturnedNoRows => {
+                        ConversionError::NoExchangeRate(on_date)
+                    }
+                    _ => ConversionError::MalformedExchangeStore,
+                })?;
+                let exchange = rates_to_exchange(rates.as_slice());
 
                 let rate = match to {
                     iso::EUR => exchange.get_rate(from, iso::EUR),
@@ -106,18 +110,16 @@ impl ExchangeStore {
 
                 Ok(Money::from_decimal(*(to_money.amount()), to))
             }
+            // FIXME: Factor out non-EUR to non-EUR conversion
             (from, to) => {
                 let currencies = Vec::from([from, to]);
-                let rates = persistence::find_rates_of_currencies(&self.conn, currencies, on_date)
-                    .map_err(|err| match err {
-                        rusqlite::Error::QueryReturnedNoRows => {
-                            ConversionError::NoExchangeRate(on_date)
-                        }
-                        _ => ConversionError::MalformedExchangeStore,
-                    })?;
-                let mut exchange = Exchange::new();
-
-                rates.iter().for_each(|rate| exchange.set_rate(rate));
+                let rates = find_rates(currencies).map_err(|err| match err {
+                    rusqlite::Error::QueryReturnedNoRows => {
+                        ConversionError::NoExchangeRate(on_date)
+                    }
+                    _ => ConversionError::MalformedExchangeStore,
+                })?;
+                let exchange = rates_to_exchange(rates.as_slice());
 
                 // Use EUR as the bridge between currencies
                 let from_curr_to_eur_rate = exchange
@@ -137,6 +139,53 @@ impl ExchangeStore {
             }
         }
     }
+
+    /// Converts currencies using a date's specific rate but it also uses
+    /// interpolated values in the event that the date is not on record. If the
+    /// date is out of bounds, e.g before the first record's date or after the
+    /// last record's date, then it will fail to convert. To use the fallback,
+    /// one must stay within the bounds of the store's dates.
+    pub fn convert_on_date_with_fallback<'c>(
+        &self,
+        from_amount: Money<'c, Currency>,
+        to_currency: &'c Currency,
+        on_date: NaiveDate,
+    ) -> Result<Money<'c, Currency>, ConversionError> {
+        let find_rates = |currencies: Vec<&'c Currency>| {
+            persistence::exchange_rate::find_rates_with_fallback(
+                &self.conn,
+                currencies.as_slice(),
+                on_date,
+            )
+        };
+
+        self.convert(from_amount, to_currency, on_date, find_rates)
+    }
+
+    /// Converts currencies using the rate on the given date. If the requested
+    /// date doesn't exist, then it'll return with the error
+    /// `ConversionError::NoExchangeRate`.
+    pub fn convert_on_date<'c>(
+        &self,
+        from_amount: Money<'c, Currency>,
+        to_currency: &'c Currency,
+        on_date: NaiveDate,
+    ) -> Result<Money<'c, Currency>, ConversionError> {
+        let find_rates = |currencies: Vec<&'c Currency>| {
+            persistence::exchange_rate::find_rates(&self.conn, currencies.as_slice(), on_date)
+        };
+
+        self.convert(from_amount, to_currency, on_date, find_rates)
+    }
+}
+
+/// Creates an `Exchange`, and sets it with all the given rates.
+fn rates_to_exchange<'c>(rates: &'c [ExchangeRate<'c, Currency>]) -> Exchange<'c, Currency> {
+    rates.iter().fold(Exchange::new(), |mut exchange, rate| {
+        exchange.set_rate(rate);
+
+        exchange
+    })
 }
 
 #[cfg(test)]

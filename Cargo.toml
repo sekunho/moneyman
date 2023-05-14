@@ -8,7 +8,6 @@ description = "A currency conversion library and TUI"
 
 [workspace.dependencies]
 moneyman_core = { path = "crates/moneyman_core", version = "0.1" }
-moneyman_sync = { path = "crates/moneyman_sync", version = "0.1" }
 
 ## HTTP client
 reqwest = { version = "0.11", features = [ "blocking" ] }
@@ -26,7 +25,7 @@ rusty-money = { version = "0.4" }
 chrono = "0.4"
 
 ## Because I don't want to deal with CSVs, even via polars lol
-rusqlite = { version = "0.29.0", features = ["bundled", "vtab", "csvtab" ] }
+rusqlite = { version = "0.29", features = ["bundled", "vtab", "csvtab", "chrono" ] }
 
 ## Decimal data type
 rust_decimal_macros = "1.29"
@@ -36,4 +35,8 @@ rust_decimal = "1.29"
 dirs = "5.0"
 
 ## For less error boilerplate
-thiserror = "1.0.24"
+thiserror = "1.0"
+
+[profile.release]
+lto = true
+codegen-units = 1
