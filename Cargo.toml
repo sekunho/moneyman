@@ -3,8 +3,11 @@ members = [ "crates/*" ]
 
 [workspace.package]
 version = "0.1.0"
-authors = [ "ho sekun <software@sekun.net>" ]
-description = "A currency conversion library and TUI"
+authors = [ "sekun <software@sekun.net>" ]
+edition = "2021"
+license-file = "LICENSE"
+repository = "https://github.com/sekunho/moneyman"
+readme = "README.md"
 
 [workspace.dependencies]
 moneyman = { path = "crates/moneyman", version = "0.1" }

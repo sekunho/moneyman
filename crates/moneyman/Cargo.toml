@@ -1,7 +1,13 @@
 [package]
 name = "moneyman"
-version = "0.1.0"
-edition = "2021"
+description = "A simple library for converting currencies"
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+license-file.workspace = true
+repository.workspace = true
+readme.workspace = true
+# documentation.workspace = true
 
 [dependencies]
 rusty-money = { workspace = true }

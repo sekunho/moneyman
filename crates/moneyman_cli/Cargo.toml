@@ -1,7 +1,13 @@
 [package]
 name = "moneyman_cli"
-version = "0.1.0"
-edition = "2021"
+description = "A simple CLI for currency conversion"
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+license-file.workspace = true
+repository.workspace = true
+readme.workspace = true
+# documentation.workspace = true
 
 [dependencies]
 moneyman = { workspace = true }
