@@ -25,3 +25,4 @@ flamegraph.svg
 perf.*
 *.csv
 *.db3
+.cargo

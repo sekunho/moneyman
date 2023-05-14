@@ -2,7 +2,7 @@ use std::path::PathBuf;
 
 use chrono::NaiveDate;
 use criterion::{black_box, criterion_group, criterion_main, Criterion};
-use moneyman_core::ExchangeStore;
+use moneyman::ExchangeStore;
 use rust_decimal_macros::dec;
 use rusty_money::{iso, Money};
 

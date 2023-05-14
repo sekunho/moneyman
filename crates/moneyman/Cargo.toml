@@ -3,12 +3,21 @@ name = "moneyman"
 version = "0.1.0"
 edition = "2021"
 
-# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
-
 [dependencies]
-moneyman_core = { workspace = true }
 rusty-money = { workspace = true }
-chrono = { workspace = true }
 rust_decimal_macros = { workspace = true }
 rust_decimal = { workspace = true }
-dirs = { workspace = true }
+chrono = { workspace = true }
+rusqlite = { workspace = true }
+thiserror = { workspace = true }
+reqwest = { workspace = true }
+bytes = { workspace = true }
+zip = { workspace = true }
+
+[dev-dependencies]
+criterion = { version = "0.4", features = [ "html_reports" ] }
+rand = "0.8"
+
+[[bench]]
+name = "convert"
+harness = false

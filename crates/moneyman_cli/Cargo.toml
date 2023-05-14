@@ -1,0 +1,12 @@
+[package]
+name = "moneyman_cli"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+moneyman = { workspace = true }
+rusty-money = { workspace = true }
+chrono = { workspace = true }
+rust_decimal_macros = { workspace = true }
+rust_decimal = { workspace = true }
+dirs = { workspace = true }
