@@ -135,8 +135,18 @@ mod tests {
     #[test]
     fn it_parses_rate_into_bidirectional_rates() {
         let (rate1, rate2) = parse_rate(iso::USD, "1.1037".to_string());
-        let expected1 = ExchangeRate::new(iso::USD, iso::EUR, Decimal::from(1) / Decimal::from_f64_retain(1.1037).unwrap()).unwrap();
-        let expected2 = ExchangeRate::new(iso::EUR, iso::USD, Decimal::from_f64_retain(1.1037).unwrap()).unwrap();
+        let expected1 = ExchangeRate::new(
+            iso::USD,
+            iso::EUR,
+            Decimal::from(1) / Decimal::from_f64_retain(1.1037).unwrap(),
+        )
+        .unwrap();
+        let expected2 = ExchangeRate::new(
+            iso::EUR,
+            iso::USD,
+            Decimal::from_f64_retain(1.1037).unwrap(),
+        )
+        .unwrap();
 
         assert_eq!(rate1, expected1);
         assert_eq!(rate2, expected2);
