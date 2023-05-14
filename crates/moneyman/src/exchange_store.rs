@@ -46,7 +46,7 @@ pub enum ConversionError {
 impl ExchangeStore {
     /// Syncs the local data store's currency exchange data with the European
     /// Central Bank.
-    pub fn sync(data_dir: PathBuf) -> Result<Self, SyncError> {
+    pub fn sync(data_dir: PathBuf) -> Result<(Self, NaiveDate), SyncError> {
         ecb::download_latest_history(&data_dir).map_err(|_e| SyncError::Download)?;
 
         let db_path = data_dir.join("eurofxref-hist.db3");
@@ -55,7 +55,9 @@ impl ExchangeStore {
 
         persistence::seed::seed_db(&store.conn, &store.data_dir).map_err(|_e| SyncError::Seed)?;
 
-        Ok(store)
+        let latest_date = store.get_latest_date().ok_or(SyncError::CouldNotRead)?;
+
+        Ok((store, latest_date))
     }
 
     /// Creates a new instance based on the existing data store. If you need
@@ -84,7 +86,7 @@ impl ExchangeStore {
     {
         let from_currency = from_amount.currency();
         match (from_currency, to_currency) {
-            (from, to) if from == to => Ok(from_amount),
+            (from, to) if from == to => Err(ConversionError::InvalidCurrency),
             // FIXME: Split OR pattern, and factor out to/from EUR conversion
             (from @ iso::EUR, to) | (from, to @ iso::EUR) => {
                 let currencies = match to {
@@ -177,6 +179,10 @@ impl ExchangeStore {
 
         self.convert(from_amount, to_currency, on_date, find_rates)
     }
+
+    pub fn get_latest_date(&self) -> Option<NaiveDate> {
+        persistence::exchange_rate::get_latest_date(&self.conn).ok()
+    }
 }
 
 /// Creates an `Exchange`, and sets it with all the given rates.
@@ -194,7 +200,7 @@ mod tests {
 
     use chrono::NaiveDate;
     use rand::distributions::{Alphanumeric, DistString};
-    use rust_decimal_macros::dec;
+    use rust_decimal::Decimal;
     use rusty_money::{iso, Money};
 
     use crate::exchange_store::{ConversionError, ExchangeStore};
@@ -225,12 +231,12 @@ mod tests {
         assert!(data_dir.exists());
 
         let store = ExchangeStore::open(data_dir).unwrap();
-        let amount_in_eur = Money::from_decimal(dec!(1000), iso::EUR);
+        let amount_in_eur = Money::from_decimal(Decimal::from(1000), iso::EUR);
         let date = NaiveDate::from_ymd_opt(2023, 05, 04).unwrap();
         let amount_in_usd = store
             .convert_on_date(amount_in_eur, iso::USD, date)
             .unwrap();
-        let expected_amount = Money::from_decimal(dec!(1000) * dec!(1.1074), iso::USD);
+        let expected_amount = dbg!(Money::from_decimal(Decimal::from(1000) * Decimal::from_i128_with_scale(11074, 4), iso::USD));
 
         assert_eq!(expected_amount, amount_in_usd);
     }
@@ -247,7 +253,7 @@ mod tests {
         assert!(data_dir.exists());
 
         let store = ExchangeStore::open(data_dir).unwrap();
-        let amount_in_eur = Money::from_decimal(dec!(1000), iso::EUR);
+        let amount_in_eur = Money::from_decimal(Decimal::from(1000), iso::EUR);
         let date = NaiveDate::from_ymd_opt(2023, 05, 06).unwrap();
 
         match dbg!(store.convert_on_date(amount_in_eur, iso::USD, date)) {

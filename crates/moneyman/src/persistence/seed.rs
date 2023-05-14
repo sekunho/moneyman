@@ -2,7 +2,7 @@ use std::path::Path;
 
 use chrono::NaiveDate;
 use rusqlite::{vtab::csvtab, Connection};
-use rust_decimal_macros::dec;
+use rust_decimal::Decimal;
 use rusty_money::{iso, Exchange, Money};
 
 use crate::persistence::{self, fallback::fetch_neighboring_rates};
@@ -234,7 +234,10 @@ fn precompute_interpolated_rates(
                 .map(|currency| {
                     let rate = exchange
                         .get_rate(iso::EUR, currency)
-                        .and_then(|rate| rate.convert(Money::from_decimal(dec!(1), iso::EUR)).ok())
+                        .and_then(|rate| {
+                            rate.convert(Money::from_decimal(Decimal::from(1), iso::EUR))
+                                .ok()
+                        })
                         .map(|money| *money.amount());
 
                     match rate {

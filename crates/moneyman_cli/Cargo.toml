@@ -13,6 +13,10 @@ readme.workspace = true
 moneyman = { workspace = true }
 rusty-money = { workspace = true }
 chrono = { workspace = true }
-rust_decimal_macros = { workspace = true }
 rust_decimal = { workspace = true }
 dirs = { workspace = true }
+clap = { workspace = true }
+
+[[bin]]
+name = "moneyman"
+path = "src/main.rs"

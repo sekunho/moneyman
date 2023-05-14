@@ -22,11 +22,13 @@
         rustc = toolchain;
       };
 
-      pname = "moneyman";
+      pname = "moneyman_cli";
       version = "0.1.0";
     in {
       packages = {
-        x86_64-linux = {
+        x86_64-linux = rec {
+          default = moneyman;
+
           moneyman = naersk'.buildPackage {
             inherit pname version;
 
@@ -43,11 +45,18 @@
 
             src = ./.;
             doCheck = false;
-            nativeBuildInputs = with pkgs; [ pkgsStatic.stdenv.cc openssl pkg-config ];
-            buildInputs = [ ];
 
             CARGO_BUILD_TARGET = "x86_64-unknown-linux-musl";
             CARGO_BUILD_RUSTFLAGS = "-C target-feature=+crt-static";
+
+            nativeBuildInputs = with pkgs; [
+              pkgsStatic.stdenv.cc
+              pkgsStatic.pkg-config
+              pkgsStatic.sqlite
+              pkgsStatic.sqlite.dev
+            ];
+
+            buildInputs = [];
           };
         };
       };
@@ -59,9 +68,6 @@
             fenix'.stable.cargo
             fenix'.stable.clippy
             fenix'.stable.rustfmt
-
-            pkgs.openssl
-            pkgs.pkg-config
           ];
         };
 
@@ -77,7 +83,9 @@
 
           nixPackages = with pkgs; [ nil ];
 
-          misc = with pkgs; [ openssl pkg-config sqlite ];
+          misc = with pkgs; [
+            pkgsStatic.sqlite
+          ];
         in pkgs.mkShell {
           buildInputs = rustPackages ++ nixPackages ++ misc;
         };

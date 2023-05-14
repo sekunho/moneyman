@@ -1,11 +1,16 @@
 use chrono::NaiveDate;
 use rusqlite::{Connection, Row};
 use rust_decimal::Decimal;
-use rust_decimal_macros::dec;
 use rusty_money::{
     iso::{self, Currency},
     ExchangeRate,
 };
+
+pub(crate) fn get_latest_date(conn: &Connection) -> Result<NaiveDate, rusqlite::Error> {
+    let mut stmt = conn.prepare_cached("SELECT Date FROM rates ORDER BY Date DESC LIMIT 1")?;
+
+    stmt.query_row((), |row| row.get::<usize, NaiveDate>(0))
+}
 
 /// Finds the rates of the given currencies to one EUR on a given date. This
 /// will ignore EUR.
@@ -116,7 +121,7 @@ pub(crate) fn parse_rate(
     let rate: Decimal =
         Decimal::from_str_exact(rate.as_ref()).expect("Rate in local DB is not a decimal");
 
-    let to_eur = ExchangeRate::new(currency, iso::EUR, dec!(1) / rate).unwrap();
+    let to_eur = ExchangeRate::new(currency, iso::EUR, Decimal::from(1) / rate).unwrap();
     let from_eur = ExchangeRate::new(iso::EUR, currency, rate).unwrap();
 
     (to_eur, from_eur)
@@ -125,14 +130,19 @@ pub(crate) fn parse_rate(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use rust_decimal_macros::dec;
     use rusty_money::{iso, ExchangeRate};
 
     #[test]
     fn it_parses_rate_into_bidirectional_rates() {
         let (rate1, rate2) = parse_rate(iso::USD, "1.1037".to_string());
-        let expected1 = ExchangeRate::new(iso::USD, iso::EUR, dec!(1) / dec!(1.1037)).unwrap();
-        let expected2 = ExchangeRate::new(iso::EUR, iso::USD, dec!(1.1037)).unwrap();
+        let expected1 = ExchangeRate::new(
+            iso::USD,
+            iso::EUR,
+            Decimal::from(1) / Decimal::from_i128_with_scale(11037, 4),
+        )
+        .unwrap();
+        let expected2 =
+            ExchangeRate::new(iso::EUR, iso::USD, Decimal::from_i128_with_scale(11037, 4)).unwrap();
 
         assert_eq!(rate1, expected1);
         assert_eq!(rate2, expected2);

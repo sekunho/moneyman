@@ -1,7 +1,6 @@
 use chrono::NaiveDate;
 use rusqlite::Connection;
 use rust_decimal::Decimal;
-use rust_decimal_macros::dec;
 use rusty_money::{
     iso::{self, Currency},
     Exchange, ExchangeRate, Money,
@@ -121,14 +120,14 @@ pub(crate) fn interpolate_rates<'c>(
 
             match (prev_date_rate, next_date_rate) {
                 (Ok(prev_date_rate), Ok(next_date_rate)) => {
-                    let y1 = dec!(1)
+                    let y1 = Decimal::from(1)
                         / *prev_date_rate
-                            .convert(Money::from_decimal(dec!(1), *currency))
+                            .convert(Money::from_decimal(Decimal::from(1), *currency))
                             .unwrap()
                             .amount();
-                    let y2 = dec!(1)
+                    let y2 = Decimal::from(1)
                         / *next_date_rate
-                            .convert(Money::from_decimal(dec!(1), *currency))
+                            .convert(Money::from_decimal(Decimal::from(1), *currency))
                             .unwrap()
                             .amount();
                     let x1 = Decimal::new(
@@ -157,7 +156,7 @@ pub(crate) fn interpolate_rates<'c>(
                     let y3 = y1 + slope * (x3 - x1);
                     let from_eur_rate = ExchangeRate::new(iso::EUR, currency, y3)
                         .map_err(|_| InterpolationError::SameCurrency);
-                    let to_eur_rate = ExchangeRate::new(*currency, iso::EUR, dec!(1) / y3)
+                    let to_eur_rate = ExchangeRate::new(*currency, iso::EUR, Decimal::from(1) / y3)
                         .map_err(|_| InterpolationError::SameCurrency);
 
                     exchange_rates.push(from_eur_rate);
