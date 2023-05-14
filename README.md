@@ -1,8 +1,20 @@
 # 💱 moneyman
 
+![Crates.io](https://img.shields.io/crates/v/moneyman?label=moneyman&style=for-the-badge)
+![Crates.io](https://img.shields.io/crates/v/moneyman_cli?label=moneyman_cli&style=for-the-badge)
+
 A crusty currency converter
 
+![moneyman_cli](./assets/cli.png)
+
 ## Example
+
+```
+$ moneyman convert 50 --from EUR --to PHP --on 2023-05-06 --fallback
+50 EUR -> 3044.5833333333350 PHP on the date 2023-05-06
+```
+
+`moneyman` is also available as a library.
 
 ```rust
 use std::path::PathBuf;
