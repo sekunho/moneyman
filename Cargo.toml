@@ -40,6 +40,8 @@ dirs = "5.0"
 ## For less error boilerplate
 thiserror = "1.0"
 
+clap = { version = "4.2", features = ["derive"] }
+
 [profile.release]
 lto = true
 codegen-units = 1

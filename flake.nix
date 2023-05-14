@@ -22,11 +22,13 @@
         rustc = toolchain;
       };
 
-      pname = "moneyman";
+      pname = "moneyman_cli";
       version = "0.1.0";
     in {
       packages = {
-        x86_64-linux = {
+        x86_64-linux = rec {
+          default = moneyman;
+
           moneyman = naersk'.buildPackage {
             inherit pname version;
 
@@ -77,7 +79,12 @@
 
           nixPackages = with pkgs; [ nil ];
 
-          misc = with pkgs; [ openssl pkg-config sqlite ];
+          misc = with pkgs; [
+            openssl
+            pkg-config
+            sqlite
+            self.packages.${system}.moneyman
+          ];
         in pkgs.mkShell {
           buildInputs = rustPackages ++ nixPackages ++ misc;
         };

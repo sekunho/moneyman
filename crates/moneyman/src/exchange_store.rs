@@ -84,7 +84,7 @@ impl ExchangeStore {
     {
         let from_currency = from_amount.currency();
         match (from_currency, to_currency) {
-            (from, to) if from == to => Ok(from_amount),
+            (from, to) if from == to => Err(ConversionError::InvalidCurrency),
             // FIXME: Split OR pattern, and factor out to/from EUR conversion
             (from @ iso::EUR, to) | (from, to @ iso::EUR) => {
                 let currencies = match to {
@@ -176,6 +176,10 @@ impl ExchangeStore {
         };
 
         self.convert(from_amount, to_currency, on_date, find_rates)
+    }
+
+    pub fn get_latest_date(&self) -> Option<NaiveDate> {
+        persistence::exchange_rate::get_latest_date(&self.conn).ok()
     }
 }
 

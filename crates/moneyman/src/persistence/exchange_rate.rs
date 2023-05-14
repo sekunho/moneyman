@@ -7,6 +7,12 @@ use rusty_money::{
     ExchangeRate,
 };
 
+pub(crate) fn get_latest_date(conn: &Connection) -> Result<NaiveDate, rusqlite::Error> {
+    let mut stmt = conn.prepare_cached("SELECT Date FROM rates ORDER BY Date DESC LIMIT 1")?;
+
+    stmt.query_row((), |row| row.get::<usize, NaiveDate>(0))
+}
+
 /// Finds the rates of the given currencies to one EUR on a given date. This
 /// will ignore EUR.
 pub(crate) fn find_rates<'c>(
