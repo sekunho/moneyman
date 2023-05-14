@@ -28,9 +28,7 @@ rusty-money = { version = "0.4" }
 chrono = "0.4"
 
 ## Because I don't want to deal with CSVs, even via polars lol
-rusqlite = { version = "0.29", features = ["bundled-full", "vtab", "csvtab", "chrono"]  }
-
-libsqlite3-sys = { version = "*", features = [ "bundled" ]  }
+rusqlite = { version = "0.29", features = ["bundled", "vtab", "csvtab", "chrono"]  }
 
 ## Decimal data type
 rust_decimal = "1.29"
