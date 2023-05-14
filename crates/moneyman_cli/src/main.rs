@@ -9,7 +9,7 @@ fn main() {
         .map(|home_dir| home_dir.join(".moneyman"))
         .expect("need a home directory");
 
-    let store = moneyman::ExchangeStore::open(data_dir).expect("failed ze sync");
+    let store = moneyman::ExchangeStore::sync(data_dir).expect("failed ze sync");
 
     let amount_in_usd = Money::from_decimal(dec!(6500), iso::USD);
     let _amount_in_eur = Money::from_decimal(dec!(1000), iso::EUR);
