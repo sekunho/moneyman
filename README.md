@@ -39,3 +39,11 @@ fn main() {
 `Money`, `Currency`, `ExchangeRate`, and `Exchange`. However, it does not
 provide any data to actually convert currency. For historical data, `moneyman`
 uses the European Central Bank, and saves its data to its own local data store.
+
+## Caveat
+
+One important thing to know is that `ANY_OTHER_CURRENCY` -> EUR is computed with
+`1/<RATE_OF_ONE_EUR_IN_THAT_OTHER_CURRENCY>` since ECB only contains the
+EUR -> `ANY_OTHER_CURRENCY` rates, not vice versa. This [dividing] is most
+probably not the behavior observed by RealWord™ currency exchanges. So this
+only serves as an approximation at best.
