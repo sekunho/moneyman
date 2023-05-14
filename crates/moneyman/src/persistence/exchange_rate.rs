@@ -141,12 +141,8 @@ mod tests {
             Decimal::from(1) / Decimal::from_i128_with_scale(11037, 4),
         )
         .unwrap();
-        let expected2 = ExchangeRate::new(
-            iso::EUR,
-            iso::USD,
-            Decimal::from_i128_with_scale(11037, 4),
-        )
-        .unwrap();
+        let expected2 =
+            ExchangeRate::new(iso::EUR, iso::USD, Decimal::from_i128_with_scale(11037, 4)).unwrap();
 
         assert_eq!(rate1, expected1);
         assert_eq!(rate2, expected2);

@@ -51,18 +51,12 @@
 
             nativeBuildInputs = with pkgs; [
               pkgsStatic.stdenv.cc
-              # pkgsStatic.pkg-config
+              pkgsStatic.pkg-config
               pkgsStatic.sqlite
               pkgsStatic.sqlite.dev
             ];
 
-            buildInputs = with pkgs; [
-              pkgsStatic.stdenv.cc
-              # pkgsStatic.pkg-config
-              pkgsStatic.sqlite
-              pkgsStatic.sqlite.dev
-
-            ];
+            buildInputs = [];
           };
         };
       };
