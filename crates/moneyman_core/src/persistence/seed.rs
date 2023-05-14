@@ -110,8 +110,8 @@ fn precompute_interpolated_rates(conn: &Connection) -> Result<(), rusqlite::Erro
     let mut first_date_statement = conn.prepare("SELECT Date FROM rates ORDER BY Date ASC")?;
     let mut latest_date_statement = conn.prepare("SELECT Date FROM rates ORDER BY Date DESC")?;
 
-    let first_date = dbg!(first_date_statement.query_row((), |row| row.get::<usize, NaiveDate>(0)))?;
-    let latest_date = dbg!(latest_date_statement.query_row((), |row| row.get::<usize, NaiveDate>(0)))?;
+    let first_date = first_date_statement.query_row((), |row| row.get::<usize, NaiveDate>(0))?;
+    let latest_date = latest_date_statement.query_row((), |row| row.get::<usize, NaiveDate>(0))?;
 
     first_date
         .iter_days()
