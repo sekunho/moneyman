@@ -28,7 +28,7 @@ impl TypedValueParser for CurrencyParser {
         arg: Option<&Arg>,
         value: &std::ffi::OsStr,
     ) -> Result<Self::Value, clap::Error> {
-        let curr_str = value.to_str().and_then(|str| Some(str.to_uppercase()));
+        let curr_str = value.to_str().map(|str| str.to_uppercase());
 
         match curr_str {
             Some(str) => match iso::find(str.as_str()) {
@@ -40,7 +40,7 @@ impl TypedValueParser for CurrencyParser {
                         arg.get_long().and_then(|name| {
                             err.insert(
                                 ContextKind::InvalidArg,
-                                ContextValue::String(format!("--{}", name.to_string())),
+                                ContextValue::String(format!("--{}", name)),
                             )
                         })
                     });

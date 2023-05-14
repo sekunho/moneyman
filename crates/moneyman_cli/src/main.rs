@@ -108,7 +108,7 @@ fn init_or_get_store(data_dir: PathBuf) -> ExchangeStore {
         println!("Running initial sync with ECB...");
 
         let (store, latest_date) =
-            moneyman::ExchangeStore::sync(data_dir.clone()).expect("failed ze sync");
+            moneyman::ExchangeStore::sync(data_dir).expect("failed ze sync");
 
         println!(
             "Completed initial sync with ECB history. Latest exchange rate date: {}",
@@ -117,7 +117,7 @@ fn init_or_get_store(data_dir: PathBuf) -> ExchangeStore {
 
         store
     } else {
-        moneyman::ExchangeStore::open(data_dir.clone()).expect("failed to open local store")
+        moneyman::ExchangeStore::open(data_dir).expect("failed to open local store")
     }
 }
 
