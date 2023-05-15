@@ -58,6 +58,9 @@ jobs:
         if-no-files-found: error
 
   release:
+    permissions:
+      contents: write
+
     needs: build
     runs-on: ubuntu-latest
     steps:
