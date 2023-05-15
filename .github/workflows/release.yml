@@ -1,0 +1,83 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v[0-9]+.[0-9]+.[0-9]+'
+
+jobs:
+  build:
+    strategy:
+      fail-fast: false
+      matrix:
+        target:
+        - x86_64-unknown-linux-musl
+        - x86_64-apple-darwin
+        include:
+          - target: x86_64-unknown-linux-musl
+            os: ubuntu-latest
+          - target: x86_64-apple-darwin
+            os: macos-latest
+
+    runs-on: ${{ matrix.os }}
+
+    steps:
+    - name: Checkout branch
+      uses: actions/checkout@v2
+
+    - name: Build Linux
+      if: matrix.os == 'ubuntu-latest'
+      run: |
+        docker run --rm -t \
+          -v $HOME/.cargo/registry/:/root/.cargo/registry \
+          -v "$(pwd)":/volume \
+          clux/muslrust:stable \
+          cargo build --release --bin moneyman --target ${{ matrix.target }}
+
+    - name: Prepare macOS
+      if: matrix.os == 'macos-latest'
+      uses: actions-rs/toolchain@v1
+      with:
+        toolchain: nightly
+        target: ${{ matrix.target }}
+        override: true
+
+    - name: Build macOS
+      if: matrix.os == 'macos-latest'
+      uses: actions-rs/cargo@v1
+      with:
+        toolchain: stable
+        command: build
+        args: --release --bin moneyman --target ${{ matrix.target }}
+
+    - name: Upload
+      uses: actions/upload-artifact@v2
+      with:
+        name: moneyman-${{ matrix.os }}-amd64
+        path: target/${{ matrix.target }}/release/moneyman
+        if-no-files-found: error
+
+  release:
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+      - name: Download
+        uses: actions/download-artifact@v2
+      - name: Layout
+        run: |
+          mv moneyman-ubuntu-latest-amd64/moneyman ./moneyman-linux-amd64
+          mv moneyman-macos-latest-amd64/moneyman ./moneyman-darwin-amd64
+          rm -rf moneyman-ubuntu-latest-amd64 moneyman-macos-latest-amd64
+
+      - name: Release
+        uses: softprops/action-gh-release@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          generate_release_notes: true
+          draft: true
+          fail_on_unmatched_files: true
+          files: |
+            moneyman-darwin-amd64
+            moneyman-linux-amd64
