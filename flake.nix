@@ -23,7 +23,7 @@
       };
 
       pname = "moneyman_cli";
-      version = "0.1.1";
+      version = "0.1.2";
     in {
       packages = {
         x86_64-linux = rec {
