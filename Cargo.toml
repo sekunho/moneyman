@@ -29,6 +29,7 @@ chrono = "0.4"
 
 ## Because I don't want to deal with CSVs, even via polars lol
 rusqlite = { version = "0.29", features = ["bundled", "vtab", "csvtab", "chrono"]  }
+libsqlite3-sys = { version = "0.26.0", features = ["bundled"] }
 
 ## Decimal data type
 rust_decimal = "1.29"

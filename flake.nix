@@ -40,7 +40,7 @@
           # FIXME: This is broken atm. I wouldn't use this cause it won't even
           # compile due to it trying to dynamically link something musl doesn't
           # apparently have.
-          moneyman-static = naersk'.buildPackage {
+          moneyman-static = naersk'.buildPackage rec {
             inherit pname version;
 
             src = ./.;
@@ -48,15 +48,20 @@
 
             CARGO_BUILD_TARGET = "x86_64-unknown-linux-musl";
             CARGO_BUILD_RUSTFLAGS = "-C target-feature=+crt-static";
+            LD_LIBRARY_PATH = pkgs.lib.makeLibraryPath nativeBuildInputs;
 
             nativeBuildInputs = with pkgs; [
               pkgsStatic.stdenv.cc
-              pkgsStatic.pkg-config
+                            pkgsStatic.pkg-config
+              pkgsStatic.openssl_1_1.dev
               pkgsStatic.sqlite
+              pkgsStatic.sqlite.out
               pkgsStatic.sqlite.dev
             ];
 
-            buildInputs = [];
+            buildInputs = with pkgs; [
+
+            ];
           };
         };
       };

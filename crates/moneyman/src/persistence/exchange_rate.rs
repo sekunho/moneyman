@@ -31,22 +31,21 @@ pub(crate) fn find_rates<'c>(
         .collect();
     let selectable_columns = filtered_currencies.join(", ");
 
-    let mut stmt = conn
-        .prepare(
-            format!(
-                "
+    conn.prepare(
+        format!(
+            "
                 SELECT Date, {selectable_columns}
                     FROM rates
                     WHERE Date = ?1
                         AND Interpolated = false
                 "
-            )
-            .as_ref(),
         )
-        .expect("oh no");
-
-    stmt.query_row([on.to_string()], |row| {
-        row_to_exchange_rates(row, currencies)
+        .as_ref(),
+    )
+    .and_then(|mut stmt| {
+        stmt.query_row([on.to_string()], |row| {
+            row_to_exchange_rates(row, currencies)
+        })
     })
 }
 

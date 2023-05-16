@@ -39,8 +39,12 @@ pub enum ConversionError {
     MalformedExchangeStore,
     #[error("could not find the relevant exchange rate on date {0}")]
     NoExchangeRate(NaiveDate),
-    #[error("not a valid currency")]
-    InvalidCurrency,
+    #[error(
+        "either {0} is not a valid currency, or it's not recorded in the European Central Bank"
+    )]
+    InvalidCurrency(Currency),
+    #[error("there's no need to convert anything. it's the same currency.")]
+    SameCurrency,
 }
 
 impl ExchangeStore {
@@ -86,16 +90,20 @@ impl ExchangeStore {
     {
         let from_currency = from_amount.currency();
         match (from_currency, to_currency) {
-            (from, to) if from == to => Err(ConversionError::InvalidCurrency),
+            (from, to) if from == to => Err(ConversionError::SameCurrency),
             // FIXME: Split OR pattern, and factor out to/from EUR conversion
             (from @ iso::EUR, to) | (from, to @ iso::EUR) => {
                 let currencies = match to {
                     iso::EUR => Vec::from([from]),
                     _ => Vec::from([to]),
                 };
+                let non_eur_currency = if from == iso::EUR { to } else { from };
                 let rates = find_rates(currencies).map_err(|err| match err {
                     rusqlite::Error::QueryReturnedNoRows => {
                         ConversionError::NoExchangeRate(on_date)
+                    }
+                    rusqlite::Error::SqlInputError { .. } => {
+                        ConversionError::InvalidCurrency(*non_eur_currency)
                     }
                     _ => ConversionError::MalformedExchangeStore,
                 })?;
@@ -108,7 +116,7 @@ impl ExchangeStore {
                 let rate = rate.ok_or(ConversionError::NoExchangeRate(on_date))?;
                 let to_money = rate
                     .convert(from_amount)
-                    .map_err(|_| ConversionError::InvalidCurrency)?;
+                    .map_err(|_| ConversionError::SameCurrency)?;
 
                 Ok(Money::from_decimal(*(to_money.amount()), to))
             }
@@ -129,13 +137,13 @@ impl ExchangeStore {
                     .ok_or(ConversionError::NoExchangeRate(on_date))?;
                 let eur = from_curr_to_eur_rate
                     .convert(from_amount)
-                    .map_err(|_| ConversionError::InvalidCurrency)?;
+                    .map_err(|_| ConversionError::SameCurrency)?;
                 let from_eur_to_target_curr_rate = exchange
                     .get_rate(iso::EUR, to)
                     .ok_or(ConversionError::NoExchangeRate(on_date))?;
                 let target_money = from_eur_to_target_curr_rate
                     .convert(eur)
-                    .map_err(|_| ConversionError::InvalidCurrency)?;
+                    .map_err(|_| ConversionError::SameCurrency)?;
 
                 Ok(Money::from_decimal(*(target_money.amount()), to))
             }
@@ -236,7 +244,10 @@ mod tests {
         let amount_in_usd = store
             .convert_on_date(amount_in_eur, iso::USD, date)
             .unwrap();
-        let expected_amount = dbg!(Money::from_decimal(Decimal::from(1000) * Decimal::from_i128_with_scale(11074, 4), iso::USD));
+        let expected_amount = dbg!(Money::from_decimal(
+            Decimal::from(1000) * Decimal::from_i128_with_scale(11074, 4),
+            iso::USD
+        ));
 
         assert_eq!(expected_amount, amount_in_usd);
     }
