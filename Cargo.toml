@@ -5,7 +5,7 @@ members = [ "crates/*" ]
 version = "0.1.2"
 authors = [ "sekun <software@sekun.net>" ]
 edition = "2021"
-license-file = "LICENSE"
+license = "BSD-3-Clause"
 repository = "https://github.com/sekunho/moneyman"
 readme = "README.md"
 
