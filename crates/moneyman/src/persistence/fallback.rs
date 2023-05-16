@@ -8,18 +8,30 @@ use rusty_money::{
 
 use super::exchange_rate::row_to_exchange_rates;
 
+/// Any error that may happen when trying to interpolate rates from its
+/// neighboring dates.
 #[derive(Debug)]
 pub(crate) enum InterpolationError {
+    /// If a rate is missing, and thus cannot complete the interpolation
     MissingRate,
+    /// If the currency being converted is the same. In this case, I don't
+    /// think it's ever possible but is here because of `rusty_money`.
     SameCurrency,
 }
 
+/// Represents the previous, and next neighboring dates, with their
+/// respective rates, of the missing date to be interpolated.
 #[derive(Debug)]
 pub(crate) struct Neighbors<'c> {
+    /// The nearest previous dates' OTHER_CURRENCIES to EUR rates
     pub prev_rates: Vec<ExchangeRate<'c, Currency>>,
+    /// The nearest previous date to the date being interpolated
     pub prev_date: NaiveDate,
+    /// The nearest next dates' OTHER_CURRENCIES to EUR rates
     pub next_rates: Vec<ExchangeRate<'c, Currency>>,
+    /// The nearest next date to the date being interpolated
     pub next_date: NaiveDate,
+    /// The date being interpolated
     pub missing_date: NaiveDate,
 }
 

@@ -6,6 +6,7 @@ use rusty_money::{
     ExchangeRate,
 };
 
+/// Gets the latest date available in the local data store
 pub(crate) fn get_latest_date(conn: &Connection) -> Result<NaiveDate, rusqlite::Error> {
     let mut stmt = conn.prepare_cached("SELECT Date FROM rates ORDER BY Date DESC LIMIT 1")?;
 

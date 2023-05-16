@@ -7,12 +7,16 @@ use reqwest::{
 };
 use thiserror::Error;
 
+/// Where ECB stores their exchange rate history
 const ECB_HISTORY_URL: &str = "https://www.ecb.europa.eu/stats/eurofxref/eurofxref-hist.zip";
 
+/// Any error that may happen while downloading the ECB exchange rate history
 #[derive(Debug, Error)]
 pub(crate) enum DownloadError {
+    /// Failed to unzip the ECB history archive
     #[error("failed to unzip archive")]
     Unzip(zip::result::ZipError),
+    /// Failed to download the ECB history archive. May be due to rate limiting.
     #[error("failed to download archive")]
     Http(reqwest::Error),
 }

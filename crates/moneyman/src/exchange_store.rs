@@ -10,39 +10,57 @@ use thiserror::Error;
 
 use crate::{ecb, persistence};
 
+/// Represents the local data store of moneyman
 pub struct ExchangeStore {
+    /// The SQLite connection established
     conn: Connection,
+    /// Directory of the local data store
     data_dir: PathBuf,
 }
 
+/// Possible errors that may occur when syncing the local data store with the
+/// European Central Bank's history.
 #[derive(Debug, Error)]
 pub enum SyncError {
+    /// If the ECB history (CSV) isn't present in the same directory as the
+    /// local data store.
     #[error("ECB history is not present in the given data directory")]
     NoEcbHistory,
+    /// Can't establish a connection with the local data store
     #[error("unable to open the exchange store")]
     CouldNotRead,
+    /// Failed to seed the local data store
     #[error("unable to complete seeding the exchange store")]
     Seed,
+    /// Unable to download the latest exchange history from the ECB
     #[error("failed to download currency exchange history from ECB")]
     Download,
 }
 
+/// Possible errors that may happen when attempting to read the local data store
 #[derive(Debug, Error)]
 pub enum InitError {
+    /// Can't establish a connection with the local data store
     #[error("unable to open the exchange store")]
     CouldNotRead,
 }
 
 #[derive(Debug, Error)]
 pub enum ConversionError {
+    /// Unable to parse the data from the store due to it potentially having
+    /// an unexpected format.
     #[error("contains malformed data")]
     MalformedExchangeStore,
+    /// There's no record in the local data store that has the exchange rate on
+    /// the given date.
     #[error("could not find the relevant exchange rate on date {0}")]
     NoExchangeRate(NaiveDate),
+    /// If the currency is not recorded by ECB, or if it doesn't exist at all
     #[error(
         "either {0} is not a valid currency, or it's not recorded in the European Central Bank"
     )]
     InvalidCurrency(Currency),
+    /// If they're trying to convert a currency to itself
     #[error("there's no need to convert anything. it's the same currency.")]
     SameCurrency,
 }
