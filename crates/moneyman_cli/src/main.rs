@@ -13,10 +13,10 @@ use rusty_money::{iso, Money};
 #[derive(Debug, Parser)]
 #[command(author, version, about, long_about = None)]
 struct Cli {
-    /// Turn debugging information on
-    #[arg(short, long)]
-    debug: bool,
-
+    // /// Turn debugging information on
+    // #[arg(short, long)]
+    // debug: bool,
+    /// What can moneyman do?
     #[command(subcommand)]
     commands: Option<Commands>,
 }

@@ -145,6 +145,15 @@ impl ExchangeStore {
                     rusqlite::Error::QueryReturnedNoRows => {
                         ConversionError::NoExchangeRate(on_date)
                     }
+                    rusqlite::Error::SqlInputError { msg, .. } => {
+                        // I uhh.. I think this is fine?
+                        let currency = msg
+                            .split(": ")
+                            .nth(1)
+                            .and_then(iso::find)
+                            .unwrap();
+                        ConversionError::InvalidCurrency(*currency)
+                    }
                     _ => ConversionError::MalformedExchangeStore,
                 })?;
                 let exchange = rates_to_exchange(rates.as_slice());
