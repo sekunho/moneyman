@@ -28,10 +28,10 @@ enum Commands {
         #[arg(short, long)]
         /// Don't do this unless you known the exchange store is messed up
         force: bool,
-
-        /// Where moneyman will save its local data store. Default: ~/.moneyman
-        #[arg(long, value_name = "DIRECTORY_PATH")]
-        data_dir: Option<PathBuf>,
+        // TODO: Implement
+        // /// Where moneyman will save its local data store. Default: ~/.moneyman
+        // #[arg(long, value_name = "DIRECTORY_PATH")]
+        // data_dir: Option<PathBuf>,
     },
     /// Convert one currency to another
     Convert {
@@ -50,10 +50,10 @@ enum Commands {
         #[arg(long, value_name = "DATE")]
         on: Option<NaiveDate>,
 
-        /// Where moneyman will save its local data store. Default: ~/.moneyman
-        #[arg(long, value_name = "DIRECTORY_PATH")]
-        data_dir: Option<PathBuf>,
-
+        // TODO: Implement
+        // /// Where moneyman will save its local data store. Default: ~/.moneyman
+        // #[arg(long, value_name = "DIRECTORY_PATH")]
+        // data_dir: Option<PathBuf>,
         /// If this flag is presest, moneyman will interpolate missing rates
         /// based on the neighboring dates with rates.
         #[arg(long)]
@@ -80,7 +80,7 @@ fn print_result_no_fallback(
     match converted_amount {
         Ok(money) => {
             println!(
-                "{} {} -> {} {} on the date {}",
+                "{} {} -> {} {} on {}",
                 from_amount.amount(),
                 from_amount.currency(),
                 money.amount(),
@@ -138,7 +138,6 @@ fn main() {
             to,
             on: Some(date),
             fallback: false,
-            data_dir: None,
         }) => {
             let from_money = Money::from_decimal(amount, &from.0);
             let store = init_or_get_store(data_dir);
@@ -152,7 +151,6 @@ fn main() {
             to,
             on: None,
             fallback: false,
-            data_dir: None,
         }) => {
             let from_money = Money::from_decimal(amount, &from.0);
             let store = init_or_get_store(data_dir);
@@ -173,7 +171,6 @@ fn main() {
             to,
             on: Some(date),
             fallback: true,
-            data_dir: None,
         }) => {
             let store = init_or_get_store(data_dir);
             let from_money = Money::from_decimal(amount, &from.0);
@@ -187,7 +184,6 @@ fn main() {
             to,
             on: None,
             fallback: true,
-            data_dir: None,
         }) => {
             let store = init_or_get_store(data_dir);
             let from_money = Money::from_decimal(amount, &from.0);
@@ -204,10 +200,7 @@ fn main() {
             }
         }
 
-        Some(Commands::Sync {
-            force,
-            data_dir: None,
-        }) => {
+        Some(Commands::Sync { force }) => {
             if force {
                 let op = std::fs::remove_file(data_dir.join("eurofxref-hist.db3"))
                     .and_then(|_| std::fs::remove_file(data_dir.join("eurofxref-hist.csv")));
