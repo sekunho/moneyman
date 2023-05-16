@@ -13,9 +13,9 @@ use rusty_money::{iso, Money};
 #[derive(Debug, Parser)]
 #[command(author, version, about, long_about = None)]
 struct Cli {
-    /// Turn debugging information on
-    #[arg(short, long)]
-    debug: bool,
+    // /// Turn debugging information on
+    // #[arg(short, long)]
+    // debug: bool,
 
     #[command(subcommand)]
     commands: Option<Commands>,
