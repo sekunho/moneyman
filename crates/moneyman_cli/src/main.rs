@@ -97,7 +97,10 @@ fn print_result_no_fallback(
                 date
             );
         }
-        Err(ConversionError::InvalidCurrency) => {
+        Err(ConversionError::InvalidCurrency(currency)) => {
+            println!("The currency {currency} may either be invalid, or is currently not recorded by the European Central Bank.");
+        }
+        Err(ConversionError::SameCurrency) => {
             println!("It's 1. ONEEEEEEEEEEEEEEEEEEEEE");
         }
     }
