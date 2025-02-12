@@ -2,7 +2,7 @@
   inputs = {
     fenix.url = "github:nix-community/fenix";
     naersk.url = "github:nix-community/naersk";
-    nixpkgs.url = "github:NixOS/nixpkgs/nixpkgs-unstable";
+    nixpkgs.url = "github:NixOS/nixpkgs/nixos-24.11";
   };
 
   outputs = { self, fenix, naersk, nixpkgs }:
@@ -24,7 +24,8 @@
 
       pname = "moneyman_cli";
       version = "0.1.2";
-    in {
+    in
+    {
       packages = {
         x86_64-linux = rec {
           default = moneyman;
@@ -53,7 +54,7 @@
               pkgsStatic.stdenv.cc
             ];
 
-            buildInputs = [];
+            buildInputs = [ ];
           };
         };
       };
@@ -68,24 +69,38 @@
           ];
         };
 
-        default = let
-          rustPackages = with fenix'.stable; [
-            rustc
-            cargo
-            clippy
-            rustfmt
-            pkgs.rust-analyzer
-            pkgs.cargo-flamegraph
-          ];
+        default =
+          let
+            rustPackages = with fenix'.stable; [
+              rustc
+              cargo
+              clippy
+              rustfmt
+              pkgs.rust-analyzer
+              pkgs.cargo-flamegraph
+            ];
 
-          nixPackages = with pkgs; [ nil ];
+            nixPackages = with pkgs; [
+              nil
+              nixpkgs-fmt
+            ];
 
-          misc = with pkgs; [
-            pkgsStatic.sqlite
-          ];
-        in pkgs.mkShell {
-          buildInputs = rustPackages ++ nixPackages ++ misc;
-        };
+            misc = with pkgs; [
+              pkgsStatic.sqlite
+              git
+            ];
+
+            darwinPackages = pkgs.lib.optionals pkgs.stdenv.isDarwin (with pkgs; [
+              libiconv
+              darwin.apple_sdk.frameworks.CoreFoundation
+              darwin.apple_sdk.frameworks.CoreServices
+              darwin.apple_sdk.frameworks.Security
+              darwin.apple_sdk.frameworks.SystemConfiguration
+            ]);
+          in
+          pkgs.mkShell {
+            buildInputs = rustPackages ++ nixPackages ++ misc ++ darwinPackages;
+          };
       };
     };
 }
