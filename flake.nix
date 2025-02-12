@@ -35,7 +35,7 @@
 
             src = ./.;
             doCheck = false;
-            nativeBuildInputs = with pkgs; [ openssl pkg-config ];
+            nativeBuildInputs = with pkgs; [ openssl pkg-config bash ];
           };
 
           # FIXME: This is broken atm. I wouldn't use this cause it won't even
@@ -66,6 +66,7 @@
             fenix'.stable.cargo
             fenix'.stable.clippy
             fenix'.stable.rustfmt
+            pkgs.bash
           ];
         };
 
