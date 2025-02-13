@@ -48,7 +48,7 @@
     in
     {
       packages = {
-        aarch64-darwin = rec {
+        x86_64-linux = rec {
           inherit moneyman;
           default = moneyman;
         };

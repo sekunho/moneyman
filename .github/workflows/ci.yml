@@ -11,23 +11,10 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-    - name: Checkout branch
-      uses: actions/checkout@v2
-
-    - name: Setup nix
-      uses: cachix/install-nix-action@v19
-      with:
-        github_access_token: ${{ secrets.GITHUB_TOKEN }}
-        extra_nix_config: |
-          store = /home/runner/nix
-          trusted-public-keys = hydra.iohk.io:f/Ea+s+dFdN+3Y/G+FDgSq+a5NEWhJGzdjvKNGv0/EQ= cache.nixos.org-1:6NCHdD59X431o0gWypbMrAURkbJ16ZPMQFGspcDShjY=
-          substituters = https://cache.iog.io https://cache.nixos.org/
-
-    - name: Restore cache
-      uses: actions/cache@v3
-      with:
-        path: /home/runner/nix
-        key: ${{ runner.os }}-${{ hashFiles('flake.lock') }}
+    - uses: actions/checkout@v4
+    - uses: DeterminateSystems/nix-installer-action@v14
+    - uses: DeterminateSystems/magic-nix-cache-action@v8
+    - uses: DeterminateSystems/flake-checker-action@v9
 
     - name: Run tests
       run: nix develop .#devShells.x86_64-linux.ci --command bash -c "cargo test"
