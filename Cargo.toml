@@ -12,9 +12,10 @@ readme = "README.md"
 
 [workspace.dependencies]
 moneyman = { path = "crates/moneyman", version = "0.1" }
+moneyman_cli = { path = "crates/moneyman_cli", version = "0.1" }
 
 ## HTTP client
-reqwest = { version = "0.11", features = [ "blocking", "rustls-tls" ], default-features = false }
+reqwest = { version = "0.12.12", features = [ "blocking", "rustls-tls" ], default-features = false }
 
 ## Bytes data type
 bytes = { version = "1.4" }
@@ -26,7 +27,7 @@ zip = { version = "0.6" }
 rusty-money = { version = "0.4" }
 
 ## Date/time stuff
-chrono = "0.4"
+chrono = "0.4.39"
 
 ## Because I don't want to deal with CSVs, even via polars lol
 rusqlite = { version = "0.29", features = ["bundled", "vtab", "csvtab", "chrono"]  }
@@ -42,7 +43,7 @@ dirs = "5.0"
 thiserror = "1.0"
 
 ## CLI
-clap = { version = "4.2", features = ["derive"] }
+clap = { version = "4.5", features = ["derive"] }
 
 [profile.release]
 opt-level = 'z'
