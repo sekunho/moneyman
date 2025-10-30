@@ -34,7 +34,7 @@
 
           commonArgs = {
             inherit src;
-            version = "0.1.2";
+            version = "0.1.3";
             strictDeps = true;
             pname = "moneyman";
             name = "moneyman_cli";
