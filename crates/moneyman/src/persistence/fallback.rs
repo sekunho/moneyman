@@ -321,18 +321,10 @@ pub(crate) fn interpolate_rates<'c>(
                             .convert(Money::from_decimal(Decimal::from(1), *currency))
                             .unwrap()
                             .amount();
-                    let x1 = Decimal::new(
-                        (neighbors.prev_date - ecb_start_date).whole_days(),
-                        0,
-                    );
-                    let x3 = Decimal::new(
-                        (neighbors.missing_date - ecb_start_date).whole_days(),
-                        0,
-                    );
-                    let x2 = Decimal::new(
-                        (neighbors.next_date - ecb_start_date).whole_days(),
-                        0,
-                    );
+                    let x1 = Decimal::new((neighbors.prev_date - ecb_start_date).whole_days(), 0);
+                    let x3 =
+                        Decimal::new((neighbors.missing_date - ecb_start_date).whole_days(), 0);
+                    let x2 = Decimal::new((neighbors.next_date - ecb_start_date).whole_days(), 0);
 
                     let slope = (y2 - y1) / (x2 - x1);
                     let y3 = y1 + slope * (x3 - x1);

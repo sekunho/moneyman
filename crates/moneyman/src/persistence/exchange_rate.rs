@@ -9,7 +9,10 @@ use rusty_money::{
 };
 
 /// Gets the latest date available in the local data store
-pub(crate) fn get_latest_date<T>(conn: &Connection) -> Result<T, rusqlite::Error> where T: FromSql {
+pub(crate) fn get_latest_date<T>(conn: &Connection) -> Result<T, rusqlite::Error>
+where
+    T: FromSql,
+{
     let mut stmt = conn.prepare_cached("SELECT Date FROM rates ORDER BY Date DESC LIMIT 1")?;
 
     stmt.query_row((), |row| row.get::<usize, T>(0))

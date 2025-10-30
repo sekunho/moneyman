@@ -6,7 +6,6 @@ use chrono::NaiveDate;
 #[cfg(feature = "time")]
 use time::{Date, Month};
 
-
 use rusqlite::{types::FromSql, vtab::csvtab, Connection};
 use rust_decimal::Decimal;
 use rusty_money::{
@@ -75,7 +74,14 @@ where
         .and_then(|mut stmt| stmt.query_row((), |row| row.get::<usize, T>(0)))
 }
 
-fn execute_copy_from_csv<T>(conn: &Connection, latest_date: T, csv_path: &Path) -> Result<(), rusqlite::Error> where T: std::fmt::Display {
+fn execute_copy_from_csv<T>(
+    conn: &Connection,
+    latest_date: T,
+    csv_path: &Path,
+) -> Result<(), rusqlite::Error>
+where
+    T: std::fmt::Display,
+{
     let script = format!(
         "
         BEGIN;
@@ -174,7 +180,7 @@ fn copy_from_csv(conn: &Connection, csv_path: &Path) -> Result<NaiveDate, rusqli
         Ok(latest_date) => {
             execute_copy_from_csv(&conn, latest_date.succ_opt().unwrap(), csv_path)?;
             Ok(latest_date)
-        },
+        }
         Err(err @ rusqlite::Error::QueryReturnedNoRows)
         | Err(err @ rusqlite::Error::SqliteFailure(_, _)) => {
             if let rusqlite::Error::SqliteFailure(error1, Some(err_str)) = err {
@@ -202,7 +208,7 @@ fn copy_from_csv(conn: &Connection, csv_path: &Path) -> Result<Date, rusqlite::E
         Ok(latest_date) => {
             execute_copy_from_csv(&conn, latest_date.next_day().unwrap(), csv_path)?;
             Ok(latest_date)
-        },
+        }
         Err(err @ rusqlite::Error::QueryReturnedNoRows)
         | Err(err @ rusqlite::Error::SqliteFailure(_, _)) => {
             if let rusqlite::Error::SqliteFailure(error1, Some(err_str)) = err {

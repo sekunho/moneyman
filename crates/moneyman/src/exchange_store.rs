@@ -197,10 +197,14 @@ impl ExchangeStore {
                 let rates = find_rates(currencies).map_err(|err| match err {
                     rusqlite::Error::QueryReturnedNoRows => {
                         #[cfg(feature = "chrono")]
-                        { ConversionError::NoExchangeRate(on_date) }
+                        {
+                            ConversionError::NoExchangeRate(on_date)
+                        }
 
                         #[cfg(feature = "time")]
-                        { ConversionError::NoExchangeRateDate(on_date) }
+                        {
+                            ConversionError::NoExchangeRateDate(on_date)
+                        }
                     }
                     rusqlite::Error::SqlInputError { .. } => {
                         ConversionError::InvalidCurrency(*non_eur_currency)
@@ -219,7 +223,6 @@ impl ExchangeStore {
                 #[cfg(feature = "time")]
                 let rate = rate.ok_or(ConversionError::NoExchangeRateDate(on_date))?;
 
-
                 let to_money = rate
                     .convert(from_amount)
                     .map_err(|_| ConversionError::SameCurrency)?;
@@ -232,10 +235,14 @@ impl ExchangeStore {
                 let rates = find_rates(currencies).map_err(|err| match err {
                     rusqlite::Error::QueryReturnedNoRows => {
                         #[cfg(feature = "chrono")]
-                        { ConversionError::NoExchangeRate(on_date) }
+                        {
+                            ConversionError::NoExchangeRate(on_date)
+                        }
 
                         #[cfg(feature = "time")]
-                        { ConversionError::NoExchangeRateDate(on_date) }
+                        {
+                            ConversionError::NoExchangeRateDate(on_date)
+                        }
                     }
                     rusqlite::Error::SqlInputError { msg, .. } => {
                         // I uhh.. I think this is fine?
@@ -247,27 +254,31 @@ impl ExchangeStore {
                 let exchange = rates_to_exchange(rates.as_slice());
 
                 // Use EUR as the bridge between currencies
-                let from_curr_to_eur_rate = exchange
-                    .get_rate(from, iso::EUR)
-                    .ok_or({
-                        #[cfg(feature = "chrono")]
-                        { ConversionError::NoExchangeRate(on_date) }
+                let from_curr_to_eur_rate = exchange.get_rate(from, iso::EUR).ok_or({
+                    #[cfg(feature = "chrono")]
+                    {
+                        ConversionError::NoExchangeRate(on_date)
+                    }
 
-                        #[cfg(feature = "time")]
-                        { ConversionError::NoExchangeRateDate(on_date) }
-                    })?;
+                    #[cfg(feature = "time")]
+                    {
+                        ConversionError::NoExchangeRateDate(on_date)
+                    }
+                })?;
                 let eur = from_curr_to_eur_rate
                     .convert(from_amount)
                     .map_err(|_| ConversionError::SameCurrency)?;
-                let from_eur_to_target_curr_rate = exchange
-                    .get_rate(iso::EUR, to)
-                    .ok_or({
-                        #[cfg(feature = "chrono")]
-                        { ConversionError::NoExchangeRate(on_date) }
+                let from_eur_to_target_curr_rate = exchange.get_rate(iso::EUR, to).ok_or({
+                    #[cfg(feature = "chrono")]
+                    {
+                        ConversionError::NoExchangeRate(on_date)
+                    }
 
-                        #[cfg(feature = "time")]
-                        { ConversionError::NoExchangeRateDate(on_date) }
-                    })?;
+                    #[cfg(feature = "time")]
+                    {
+                        ConversionError::NoExchangeRateDate(on_date)
+                    }
+                })?;
                 let target_money = from_eur_to_target_curr_rate
                     .convert(eur)
                     .map_err(|_| ConversionError::SameCurrency)?;

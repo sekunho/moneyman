@@ -117,7 +117,7 @@ fn print_result_no_fallback(
         Err(ConversionError::SameCurrency) => {
             println!("It's 1. ONEEEEEEEEEEEEEEEEEEEEE");
         }
-        Err(_) => println!("Something failed. But, how did you get here..?")
+        Err(_) => println!("Something failed. But, how did you get here..?"),
     }
 }
 
