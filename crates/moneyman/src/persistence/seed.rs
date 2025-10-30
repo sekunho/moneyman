@@ -15,7 +15,7 @@ use rusty_money::{
 
 use crate::persistence::{self, fallback::fetch_neighboring_rates};
 
-const CURRENCIES: [&'static Currency; 33] = [
+const CURRENCIES: [&Currency; 33] = [
     iso::USD,
     iso::JPY,
     iso::BGN,
@@ -174,11 +174,11 @@ fn execute_cleanup(conn: &Connection, csv_path: &Path) -> Result<(), rusqlite::E
 #[cfg(feature = "chrono")]
 fn copy_from_csv(conn: &Connection, csv_path: &Path) -> Result<NaiveDate, rusqlite::Error> {
     csvtab::load_module(conn)?;
-    let latest_entry = get_latest_date::<NaiveDate>(&conn);
+    let latest_entry = get_latest_date::<NaiveDate>(conn);
 
     match latest_entry {
         Ok(latest_date) => {
-            execute_copy_from_csv(&conn, latest_date.succ_opt().unwrap(), csv_path)?;
+            execute_copy_from_csv(conn, latest_date.succ_opt().unwrap(), csv_path)?;
             Ok(latest_date)
         }
         Err(err @ rusqlite::Error::QueryReturnedNoRows)
@@ -186,7 +186,7 @@ fn copy_from_csv(conn: &Connection, csv_path: &Path) -> Result<NaiveDate, rusqli
             if let rusqlite::Error::SqliteFailure(error1, Some(err_str)) = err {
                 match err_str.as_str() {
                     "no such table: rates" => {
-                        execute_cleanup(&conn, csv_path)?;
+                        execute_cleanup(conn, csv_path)?;
                         Ok(NaiveDate::from_ymd_opt(1999, 1, 4).unwrap())
                     }
 
@@ -202,11 +202,11 @@ fn copy_from_csv(conn: &Connection, csv_path: &Path) -> Result<NaiveDate, rusqli
 #[cfg(feature = "time")]
 fn copy_from_csv(conn: &Connection, csv_path: &Path) -> Result<Date, rusqlite::Error> {
     csvtab::load_module(conn)?;
-    let latest_entry = get_latest_date::<Date>(&conn);
+    let latest_entry = get_latest_date::<Date>(conn);
 
     match latest_entry {
         Ok(latest_date) => {
-            execute_copy_from_csv(&conn, latest_date.next_day().unwrap(), csv_path)?;
+            execute_copy_from_csv(conn, latest_date.next_day().unwrap(), csv_path)?;
             Ok(latest_date)
         }
         Err(err @ rusqlite::Error::QueryReturnedNoRows)
@@ -214,7 +214,7 @@ fn copy_from_csv(conn: &Connection, csv_path: &Path) -> Result<Date, rusqlite::E
             if let rusqlite::Error::SqliteFailure(error1, Some(err_str)) = err {
                 match err_str.as_str() {
                     "no such table: rates" => {
-                        execute_cleanup(&conn, csv_path)?;
+                        execute_cleanup(conn, csv_path)?;
                         Ok(Date::from_calendar_date(1999, Month::January, 4).unwrap())
                     }
 
