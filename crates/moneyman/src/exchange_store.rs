@@ -315,7 +315,7 @@ mod tests {
 
         let store = ExchangeStore::open(data_dir).unwrap();
         let amount_in_eur = Money::from_decimal(Decimal::from(1000), iso::EUR);
-        let date = NaiveDate::from_ymd_opt(2023, 05, 04).unwrap();
+        let date = NaiveDate::from_ymd_opt(2023, 5, 4).unwrap();
         let amount_in_usd = store
             .convert_on_date(amount_in_eur, iso::USD, date)
             .unwrap();
@@ -340,7 +340,7 @@ mod tests {
 
         let store = ExchangeStore::open(data_dir).unwrap();
         let amount_in_eur = Money::from_decimal(Decimal::from(1000), iso::EUR);
-        let date = NaiveDate::from_ymd_opt(2023, 05, 06).unwrap();
+        let date = NaiveDate::from_ymd_opt(2023, 5, 6).unwrap();
 
         match dbg!(store.convert_on_date(amount_in_eur, iso::USD, date)) {
             Ok(_) => panic!("expected to fail"),

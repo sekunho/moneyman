@@ -114,10 +114,10 @@ pub(crate) fn row_to_exchange_rates<'c>(
 }
 
 /// Parses a currency rate into bidirectional exchange rates
-pub(crate) fn parse_rate(
-    currency: &Currency,
+pub(crate) fn parse_rate<'c>(
+    currency: &'c Currency,
     rate: String,
-) -> (ExchangeRate<Currency>, ExchangeRate<Currency>) {
+) -> (ExchangeRate<'c, Currency>, ExchangeRate<'c, Currency>) {
     let rate: Decimal =
         Decimal::from_str_exact(rate.as_ref()).expect("Rate in local DB is not a decimal");
 
