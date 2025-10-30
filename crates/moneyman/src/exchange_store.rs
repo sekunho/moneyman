@@ -6,7 +6,6 @@ use rusty_money::{
     iso::{self, Currency},
     Exchange, ExchangeRate, Money,
 };
-use thiserror::Error;
 
 use crate::{ecb, persistence};
 
@@ -20,49 +19,102 @@ pub struct ExchangeStore {
 
 /// Possible errors that may occur when syncing the local data store with the
 /// European Central Bank's history.
-#[derive(Debug, Error)]
+#[derive(Debug)]
 pub enum SyncError {
     /// If the ECB history (CSV) isn't present in the same directory as the
     /// local data store.
-    #[error("ECB history is not present in the given data directory")]
     NoEcbHistory,
     /// Can't establish a connection with the local data store
-    #[error("unable to open the exchange store")]
     CouldNotRead,
     /// Failed to seed the local data store
-    #[error("unable to complete seeding the exchange store")]
     Seed,
     /// Unable to download the latest exchange history from the ECB
-    #[error("failed to download currency exchange history from ECB")]
     Download,
 }
 
 /// Possible errors that may happen when attempting to read the local data store
-#[derive(Debug, Error)]
+#[derive(Debug)]
 pub enum InitError {
     /// Can't establish a connection with the local data store
-    #[error("unable to open the exchange store")]
     CouldNotRead,
 }
 
-#[derive(Debug, Error)]
+#[derive(Debug)]
 pub enum ConversionError {
     /// Unable to parse the data from the store due to it potentially having
     /// an unexpected format.
-    #[error("contains malformed data")]
     MalformedExchangeStore,
     /// There's no record in the local data store that has the exchange rate on
     /// the given date.
-    #[error("could not find the relevant exchange rate on date {0}")]
     NoExchangeRate(NaiveDate),
     /// If the currency is not recorded by ECB, or if it doesn't exist at all
-    #[error(
-        "either {0} is not a valid currency, or it's not recorded in the European Central Bank"
-    )]
     InvalidCurrency(Currency),
     /// If they're trying to convert a currency to itself
-    #[error("there's no need to convert anything. it's the same currency.")]
     SameCurrency,
+}
+
+impl std::fmt::Display for SyncError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            SyncError::NoEcbHistory => {
+                write!(f, "ECB history is not present in the given data directory")
+            }
+            SyncError::CouldNotRead => write!(f, "unable to open the exchange store"),
+            SyncError::Seed => write!(f, "unable to complete seeding the exchange store"),
+            SyncError::Download => {
+                write!(f, "failed to donwload currency exchange history from ECB")
+            }
+        }
+    }
+}
+
+impl std::error::Error for SyncError {
+    fn source(&self) -> Option<&(dyn std::error::Error + 'static)> {
+        None
+    }
+
+    fn cause(&self) -> Option<&dyn std::error::Error> {
+        self.source()
+    }
+}
+
+impl std::fmt::Display for InitError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            InitError::CouldNotRead => write!(f, "unable to open the exchange store"),
+        }
+    }
+}
+
+impl std::error::Error for InitError {
+    fn source(&self) -> Option<&(dyn std::error::Error + 'static)> {
+        None
+    }
+
+    fn cause(&self) -> Option<&dyn std::error::Error> {
+        self.source()
+    }
+}
+
+impl std::fmt::Display for ConversionError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            ConversionError::MalformedExchangeStore => write!(f, "contains malformed data"),
+            ConversionError::NoExchangeRate(naive_date) => write!(f, "could not find the relevant exchange rate on date {naive_date}"),
+            ConversionError::InvalidCurrency(currency) => write!(f, "either {currency} is not a valid currency, or it's not recorded in the European Central Bank"),
+            ConversionError::SameCurrency => write!(f, "there's no need to convert anything. it's the same currency."),
+        }
+    }
+}
+
+impl std::error::Error for ConversionError {
+    fn source(&self) -> Option<&(dyn std::error::Error + 'static)> {
+        None
+    }
+
+    fn cause(&self) -> Option<&dyn std::error::Error> {
+        self.source()
+    }
 }
 
 impl ExchangeStore {
@@ -147,11 +199,7 @@ impl ExchangeStore {
                     }
                     rusqlite::Error::SqlInputError { msg, .. } => {
                         // I uhh.. I think this is fine?
-                        let currency = msg
-                            .split(": ")
-                            .nth(1)
-                            .and_then(iso::find)
-                            .unwrap();
+                        let currency = msg.split(": ").nth(1).and_then(iso::find).unwrap();
                         ConversionError::InvalidCurrency(*currency)
                     }
                     _ => ConversionError::MalformedExchangeStore,

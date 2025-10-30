@@ -1240,7 +1240,6 @@ dependencies = [
  "rusqlite",
  "rust_decimal",
  "rusty-money",
- "thiserror 1.0.40",
  "zip",
 ]
 

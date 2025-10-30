@@ -1,24 +1,40 @@
-use std::path::PathBuf;
+use std::{error::Error, path::PathBuf};
 
 use bytes::Bytes;
 use reqwest::{
     blocking::{Client, Response},
     header::CONTENT_TYPE,
 };
-use thiserror::Error;
 
 /// Where ECB stores their exchange rate history
 const ECB_HISTORY_URL: &str = "https://www.ecb.europa.eu/stats/eurofxref/eurofxref-hist.zip";
 
 /// Any error that may happen while downloading the ECB exchange rate history
-#[derive(Debug, Error)]
+#[derive(Debug)]
 pub(crate) enum DownloadError {
     /// Failed to unzip the ECB history archive
-    #[error("failed to unzip archive")]
     Unzip(zip::result::ZipError),
     /// Failed to download the ECB history archive. May be due to rate limiting.
-    #[error("failed to download archive")]
     Http(reqwest::Error),
+}
+
+impl std::fmt::Display for DownloadError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            DownloadError::Unzip(zip_error) => write!(f, "failed to unzip archive {zip_error}"),
+            DownloadError::Http(error) => write!(f, "failed to download archive from ECB {error}"),
+        }
+    }
+}
+
+impl Error for DownloadError {
+    fn source(&self) -> Option<&(dyn Error + 'static)> {
+        None
+    }
+
+    fn cause(&self) -> Option<&dyn Error> {
+        self.source()
+    }
 }
 
 impl From<reqwest::Error> for DownloadError {

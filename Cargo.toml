@@ -39,9 +39,6 @@ rust_decimal = "1.29"
 ## directory stuff
 dirs = "5.0"
 
-## For less error boilerplate
-thiserror = "1.0"
-
 ## CLI
 clap = { version = "4.5", features = ["derive"] }
 
