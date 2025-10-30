@@ -11,9 +11,8 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - uses: DeterminateSystems/nix-installer-action@v14
-      - uses: DeterminateSystems/magic-nix-cache-action@v8
-      - uses: DeterminateSystems/flake-checker-action@v9
+      - uses: DeterminateSystems/nix-installer-action@v20
+      - uses: DeterminateSystems/flake-checker-action@v12
       - name: Run tests
         run: nix develop .#devShells.x86_64-linux.ci --command bash -c "cargo test"
       - name: Build
