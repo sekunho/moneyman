@@ -23,7 +23,7 @@ jobs:
 
     steps:
     - name: Checkout branch
-      uses: actions/checkout@v2
+      uses: actions/checkout@v5
 
     - name: Build Linux
       if: matrix.os == 'ubuntu-latest'
@@ -51,7 +51,7 @@ jobs:
         args: --release --bin moneyman --target ${{ matrix.target }}
 
     - name: Upload
-      uses: actions/upload-artifact@v2
+      uses: actions/upload-artifact@v5
       with:
         name: moneyman-${{ matrix.os }}-amd64
         path: target/${{ matrix.target }}/release/moneyman
@@ -66,7 +66,7 @@ jobs:
     steps:
       - uses: actions/checkout@v2
       - name: Download
-        uses: actions/download-artifact@v2
+        uses: actions/download-artifact@v6
       - name: Layout
         run: |
           mv moneyman-ubuntu-latest-amd64/moneyman ./moneyman-linux-amd64
