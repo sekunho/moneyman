@@ -21,7 +21,7 @@ reqwest = { version = "0.12", features = [ "blocking", "rustls-tls" ], default-f
 bytes = { version = "1.10" }
 
 ## Handling ZIP archives/buffers
-zip = { version = "6.0", default-features = false }
+zip = { version = "6.0", features = ["deflate"], default-features = false }
 
 ## Here comes the moneeeeeyyyy, here comes the money
 rusty-money = { version = "0.4" }
