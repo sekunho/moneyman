@@ -15,32 +15,31 @@ moneyman = { path = "crates/moneyman", version = "0.1" }
 moneyman_cli = { path = "crates/moneyman_cli", version = "0.1" }
 
 ## HTTP client
-reqwest = { version = "0.12.15", features = [ "blocking", "rustls-tls" ], default-features = false }
+reqwest = { version = "0.12", features = [ "blocking", "rustls-tls" ], default-features = false }
 
 ## Bytes data type
-bytes = { version = "1.4" }
+bytes = { version = "1.10" }
 
 ## Handling ZIP archives/buffers
-zip = { version = "0.6" }
+zip = { version = "6.0", features = ["deflate"], default-features = false }
 
 ## Here comes the moneeeeeyyyy, here comes the money
 rusty-money = { version = "0.4" }
 
 ## Date/time stuff
-chrono = "0.4.39"
+chrono = { version = "0.4", default-features = false }
 
 ## Because I don't want to deal with CSVs, even via polars lol
-rusqlite = { version = "0.29", features = ["bundled", "vtab", "csvtab", "chrono"]  }
-libsqlite3-sys = { version = "0.26.0", features = ["bundled"] }
+rusqlite = { version = "0.37", features = ["bundled", "vtab", "csvtab", "chrono"], default-features = false  }
 
 ## Decimal data type
-rust_decimal = "1.29"
+rust_decimal = { version = "1.29", features = ["std"], default-features = false }
 
 ## directory stuff
-dirs = "5.0"
+dirs = "6.0"
 
 ## CLI
-clap = { version = "4.5", features = ["derive"] }
+clap = { version = "4.5", features = ["derive", "std", "error-context", "help", "suggestions", "usage"], default-features = false }
 
 [profile.release]
 opt-level = 'z'
