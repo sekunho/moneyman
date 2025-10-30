@@ -314,7 +314,7 @@ fn precompute_interpolated_rates(
         conn.prepare("SELECT Date FROM rates ORDER BY Date DESC LIMIT 1")?;
 
     let latest_date = latest_date_statement.query_row((), |row| row.get::<usize, time::Date>(0))?;
-    let current_date = start_date.next_day().unwrap();
+    let mut current_date = start_date.next_day().unwrap();
 
     while current_date < latest_date {
         let neighbors = fetch_neighboring_rates(conn, &CURRENCIES, current_date)?;
@@ -357,6 +357,7 @@ fn precompute_interpolated_rates(
         );
 
         conn.execute_batch(script.as_str())?;
+        current_date = current_date.next_day().unwrap();
     }
 
     Ok(())

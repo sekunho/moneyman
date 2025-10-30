@@ -373,7 +373,6 @@ fn rates_to_exchange<'c>(rates: &'c [ExchangeRate<'c, Currency>]) -> Exchange<'c
 mod tests {
     use std::path::PathBuf;
 
-    use chrono::NaiveDate;
     use rand::distributions::{Alphanumeric, DistString};
     use rust_decimal::Decimal;
     use rusty_money::{iso, Money};
@@ -407,7 +406,13 @@ mod tests {
 
         let store = ExchangeStore::open(data_dir).unwrap();
         let amount_in_eur = Money::from_decimal(Decimal::from(1000), iso::EUR);
-        let date = NaiveDate::from_ymd_opt(2023, 5, 4).unwrap();
+
+        #[cfg(feature = "chrono")]
+        let date = chrono::NaiveDate::from_ymd_opt(2023, 5, 4).unwrap();
+
+        #[cfg(feature = "time")]
+        let date = time::Date::from_calendar_date(2023, time::Month::May, 4).unwrap();
+
         let amount_in_usd = store
             .convert_on_date(amount_in_eur, iso::USD, date)
             .unwrap();
@@ -432,11 +437,18 @@ mod tests {
 
         let store = ExchangeStore::open(data_dir).unwrap();
         let amount_in_eur = Money::from_decimal(Decimal::from(1000), iso::EUR);
-        let date = NaiveDate::from_ymd_opt(2023, 5, 6).unwrap();
+        #[cfg(feature = "chrono")]
+        let date = chrono::NaiveDate::from_ymd_opt(2023, 5, 6).unwrap();
+
+        #[cfg(feature = "time")]
+        let date = time::Date::from_calendar_date(2023, time::Month::May, 6).unwrap();
 
         match dbg!(store.convert_on_date(amount_in_eur, iso::USD, date)) {
             Ok(_) => panic!("expected to fail"),
+            #[cfg(feature = "chrono")]
             Err(ConversionError::NoExchangeRate { .. }) => (),
+            #[cfg(feature = "time")]
+            Err(ConversionError::NoExchangeRateDate { .. }) => (),
             Err(_) => panic!("expected db not to have any results, not fail cause of other cases"),
         }
     }
