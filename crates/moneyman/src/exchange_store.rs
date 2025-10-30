@@ -1,6 +1,8 @@
+#[cfg(feature = "chrono")]
+use chrono::NaiveDate;
+
 use std::path::PathBuf;
 
-use chrono::NaiveDate;
 use rusqlite::Connection;
 use rusty_money::{
     iso::{self, Currency},
@@ -46,7 +48,10 @@ pub enum ConversionError {
     MalformedExchangeStore,
     /// There's no record in the local data store that has the exchange rate on
     /// the given date.
+    #[cfg(feature = "chrono")]
     NoExchangeRate(NaiveDate),
+    #[cfg(feature = "time")]
+    NoExchangeRate(time::Date),
     /// If the currency is not recorded by ECB, or if it doesn't exist at all
     InvalidCurrency(Currency),
     /// If they're trying to convert a currency to itself
@@ -100,7 +105,10 @@ impl std::fmt::Display for ConversionError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
             ConversionError::MalformedExchangeStore => write!(f, "contains malformed data"),
+            #[cfg(feature = "chrono")]
             ConversionError::NoExchangeRate(naive_date) => write!(f, "could not find the relevant exchange rate on date {naive_date}"),
+            #[cfg(feature = "time")]
+            ConversionError::NoExchangeRate(date) => write!(f, "could not find the relevant exchange rate on date {date}"),
             ConversionError::InvalidCurrency(currency) => write!(f, "either {currency} is not a valid currency, or it's not recorded in the European Central Bank"),
             ConversionError::SameCurrency => write!(f, "there's no need to convert anything. it's the same currency."),
         }
@@ -120,6 +128,7 @@ impl std::error::Error for ConversionError {
 impl ExchangeStore {
     /// Syncs the local data store's currency exchange data with the European
     /// Central Bank.
+    #[cfg(feature = "chrono")]
     pub fn sync(data_dir: PathBuf) -> Result<(Self, NaiveDate), SyncError> {
         ecb::download_latest_history(&data_dir).map_err(|_e| SyncError::Download)?;
 
@@ -148,6 +157,7 @@ impl ExchangeStore {
     /// This is the "generic" version of the convert function. Along with the
     /// usual data needed to convert two currencies, it also needs you to
     /// provide a closure that returns the exchange rates.
+    #[cfg(feature = "chrono")]
     fn convert<'c, F>(
         &self,
         from_amount: Money<'c, Currency>,
@@ -230,6 +240,7 @@ impl ExchangeStore {
     /// date is out of bounds, e.g before the first record's date or after the
     /// last record's date, then it will fail to convert. To use the fallback,
     /// one must stay within the bounds of the store's dates.
+    #[cfg(feature = "chrono")]
     pub fn convert_on_date_with_fallback<'c>(
         &self,
         from_amount: Money<'c, Currency>,
@@ -250,6 +261,7 @@ impl ExchangeStore {
     /// Converts currencies using the rate on the given date. If the requested
     /// date doesn't exist, then it'll return with the error
     /// `ConversionError::NoExchangeRate`.
+    #[cfg(feature = "chrono")]
     pub fn convert_on_date<'c>(
         &self,
         from_amount: Money<'c, Currency>,
@@ -263,6 +275,7 @@ impl ExchangeStore {
         self.convert(from_amount, to_currency, on_date, find_rates)
     }
 
+    #[cfg(feature = "chrono")]
     pub fn get_latest_date(&self) -> Option<NaiveDate> {
         persistence::exchange_rate::get_latest_date(&self.conn).ok()
     }

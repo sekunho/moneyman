@@ -30,4 +30,4 @@ harness = false
 [features]
 default = ["chrono"]
 time = ["dep:time"]
-chrono = ["dep:chrono"]
+chrono = ["dep:chrono", "rusqlite/chrono"]

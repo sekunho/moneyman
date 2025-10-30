@@ -1,4 +1,6 @@
+#[cfg(feature = "chrono")]
 use chrono::NaiveDate;
+
 use rusqlite::{Connection, Row};
 use rust_decimal::Decimal;
 use rusty_money::{
@@ -7,6 +9,7 @@ use rusty_money::{
 };
 
 /// Gets the latest date available in the local data store
+#[cfg(feature = "chrono")]
 pub(crate) fn get_latest_date(conn: &Connection) -> Result<NaiveDate, rusqlite::Error> {
     let mut stmt = conn.prepare_cached("SELECT Date FROM rates ORDER BY Date DESC LIMIT 1")?;
 
@@ -15,6 +18,7 @@ pub(crate) fn get_latest_date(conn: &Connection) -> Result<NaiveDate, rusqlite::
 
 /// Finds the rates of the given currencies to one EUR on a given date. This
 /// will ignore EUR.
+#[cfg(feature = "chrono")]
 pub(crate) fn find_rates<'c>(
     conn: &Connection,
     currencies: &[&'c Currency],
@@ -54,6 +58,7 @@ pub(crate) fn find_rates<'c>(
 /// rates as long as the requested date is not out of bounds. It is considered
 /// out of bounds if it predates the earliest possible date, or exceeds the
 /// latest row.
+#[cfg(feature = "chrono")]
 pub(crate) fn find_rates_with_fallback<'c>(
     conn: &Connection,
     currencies: &[&'c Currency],

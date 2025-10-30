@@ -1,6 +1,8 @@
 use std::path::Path;
 
+#[cfg(feature = "chrono")]
 use chrono::NaiveDate;
+
 use rusqlite::{vtab::csvtab, Connection};
 use rust_decimal::Decimal;
 use rusty_money::{iso, Exchange, Money};
@@ -16,6 +18,7 @@ pub(crate) fn seed_db(conn: &Connection, data_dir: &Path) -> Result<(), rusqlite
 }
 
 /// Creates a virtual table `vrates` from the CSV
+#[cfg(feature = "chrono")]
 fn copy_from_csv(conn: &Connection, csv_path: &Path) -> Result<NaiveDate, rusqlite::Error> {
     csvtab::load_module(conn)?;
 
@@ -164,8 +167,10 @@ fn clean_up_na(conn: &Connection) -> Result<(), rusqlite::Error> {
     (*conn).execute_batch(statements.as_ref())
 }
 
+#[cfg(feature = "chrono")]
 fn precompute_interpolated_rates(
     conn: &Connection,
+    #[cfg(feature = "chrono")]
     start_date: NaiveDate,
 ) -> Result<(), rusqlite::Error> {
     let currencies = [

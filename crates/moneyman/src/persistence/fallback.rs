@@ -1,4 +1,6 @@
+#[cfg(feature = "chrono")]
 use chrono::NaiveDate;
+
 use rusqlite::Connection;
 use rust_decimal::Decimal;
 use rusty_money::{
@@ -26,16 +28,20 @@ pub(crate) struct Neighbors<'c> {
     /// The nearest previous dates' OTHER_CURRENCIES to EUR rates
     pub prev_rates: Vec<ExchangeRate<'c, Currency>>,
     /// The nearest previous date to the date being interpolated
+    #[cfg(feature = "chrono")]
     pub prev_date: NaiveDate,
     /// The nearest next dates' OTHER_CURRENCIES to EUR rates
     pub next_rates: Vec<ExchangeRate<'c, Currency>>,
     /// The nearest next date to the date being interpolated
+    #[cfg(feature = "chrono")]
     pub next_date: NaiveDate,
     /// The date being interpolated
+    #[cfg(feature = "chrono")]
     pub missing_date: NaiveDate,
 }
 
 // Fetches the neighboring rates (previous and next) of the missing date.
+#[cfg(feature = "chrono")]
 pub(crate) fn fetch_neighboring_rates<'c>(
     conn: &Connection,
     currencies: &[&'c Currency],
@@ -76,6 +82,7 @@ pub(crate) fn fetch_neighboring_rates<'c>(
 
     let (prev_date, prev_rates) = prev_neighbor_stmt.query_row([on.to_string()], |row| {
         row_to_exchange_rates(row, currencies).and_then(|rates| {
+            #[cfg(feature = "chrono")]
             let date = NaiveDate::parse_from_str(row.get::<usize, String>(0)?.as_str(), "%Y-%m-%d")
                 .expect("not a date oh no");
             Ok((date, rates))
@@ -83,6 +90,7 @@ pub(crate) fn fetch_neighboring_rates<'c>(
     })?;
     let (next_date, next_rates) = next_neighbor_stmt.query_row([on.to_string()], |row| {
         row_to_exchange_rates(row, currencies).and_then(|rates| {
+            #[cfg(feature = "chrono")]
             let date = NaiveDate::parse_from_str(row.get::<usize, String>(0)?.as_str(), "%Y-%m-%d")
                 .expect("not a date oh no");
             Ok((date, rates))
@@ -98,6 +106,7 @@ pub(crate) fn fetch_neighboring_rates<'c>(
     })
 }
 
+#[cfg(feature = "chrono")]
 pub(crate) fn interpolate_rates<'c>(
     currencies: &[&'c Currency],
     neighbors: Neighbors<'c>,
