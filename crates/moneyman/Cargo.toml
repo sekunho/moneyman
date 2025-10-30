@@ -12,7 +12,7 @@ readme.workspace = true
 [dependencies]
 rusty-money = { workspace = true }
 rust_decimal = { workspace = true }
-chrono = { workspace = true }
+chrono = { workspace = true, optional = true }
 rusqlite = { workspace = true }
 reqwest = { workspace = true }
 bytes = { workspace = true }
@@ -25,3 +25,7 @@ rand = "0.8"
 [[bench]]
 name = "convert"
 harness = false
+
+[features]
+default = ["chrono"]
+chrono = ["dep:chrono"]
