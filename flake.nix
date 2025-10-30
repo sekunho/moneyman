@@ -74,6 +74,7 @@
                 misc = with pkgs; [
                   pkgsStatic.sqlite
                   git
+                  yamlfmt
                 ];
               in
               craneLib.devShell {
