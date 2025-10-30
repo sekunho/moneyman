@@ -5,7 +5,8 @@
     crane.url = "github:ipetkov/crane";
 
     fenix = {
-      url = "github:nix-community/fenix";
+      # TODO: Remove when https://github.com/nix-community/fenix/issues/206 is OK
+      url = "github:marienz/fenix";
       inputs.nixpkgs.follows = "nixpkgs";
       inputs.rust-analyzer-src.follows = "";
     };
