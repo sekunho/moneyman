@@ -13,6 +13,7 @@ readme.workspace = true
 rusty-money = { workspace = true }
 rust_decimal = { workspace = true }
 chrono = { workspace = true, optional = true }
+time = { workspace = true, optional = true }
 rusqlite = { workspace = true }
 reqwest = { workspace = true }
 bytes = { workspace = true }
@@ -28,4 +29,5 @@ harness = false
 
 [features]
 default = ["chrono"]
+time = ["dep:time"]
 chrono = ["dep:chrono"]

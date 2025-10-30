@@ -1132,6 +1132,7 @@ dependencies = [
  "rusqlite",
  "rust_decimal",
  "rusty-money",
+ "time",
  "zip",
 ]
 
