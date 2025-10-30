@@ -10,12 +10,13 @@ readme.workspace = true
 # documentation.workspace = true
 
 [dependencies]
-moneyman = { workspace = true }
+moneyman = { workspace = true, features = ["time"], default-features = false }
 rusty-money = { workspace = true }
-chrono = { workspace = true }
+time = { workspace = true, features = ["serde"] }
 rust_decimal = { workspace = true }
 dirs = { workspace = true }
 clap = { workspace = true }
+serde.workspace = true
 
 [[bin]]
 name = "moneyman"

@@ -1,5 +1,7 @@
+#[cfg(feature = "chrono")]
 use chrono::NaiveDate;
-use rusqlite::{Connection, Row};
+
+use rusqlite::{types::FromSql, Connection, Row};
 use rust_decimal::Decimal;
 use rusty_money::{
     iso::{self, Currency},
@@ -7,18 +9,58 @@ use rusty_money::{
 };
 
 /// Gets the latest date available in the local data store
-pub(crate) fn get_latest_date(conn: &Connection) -> Result<NaiveDate, rusqlite::Error> {
+pub(crate) fn get_latest_date<T>(conn: &Connection) -> Result<T, rusqlite::Error>
+where
+    T: FromSql,
+{
     let mut stmt = conn.prepare_cached("SELECT Date FROM rates ORDER BY Date DESC LIMIT 1")?;
 
-    stmt.query_row((), |row| row.get::<usize, NaiveDate>(0))
+    stmt.query_row((), |row| row.get::<usize, T>(0))
 }
 
 /// Finds the rates of the given currencies to one EUR on a given date. This
 /// will ignore EUR.
+#[cfg(feature = "chrono")]
 pub(crate) fn find_rates<'c>(
     conn: &Connection,
     currencies: &[&'c Currency],
     on: NaiveDate,
+) -> Result<Vec<ExchangeRate<'c, Currency>>, rusqlite::Error> {
+    let filtered_currencies: Vec<String> = currencies
+        .iter()
+        .filter_map(|c| {
+            if *c == iso::EUR {
+                None
+            } else {
+                Some(c.iso_alpha_code.to_string())
+            }
+        })
+        .collect();
+    let selectable_columns = filtered_currencies.join(", ");
+
+    conn.prepare(
+        format!(
+            "
+                SELECT Date, {selectable_columns}
+                    FROM rates
+                    WHERE Date = ?1
+                        AND Interpolated = false
+                "
+        )
+        .as_ref(),
+    )
+    .and_then(|mut stmt| {
+        stmt.query_row([on.to_string()], |row| {
+            row_to_exchange_rates(row, currencies)
+        })
+    })
+}
+
+#[cfg(feature = "time")]
+pub(crate) fn find_rates<'c>(
+    conn: &Connection,
+    currencies: &[&'c Currency],
+    on: time::Date,
 ) -> Result<Vec<ExchangeRate<'c, Currency>>, rusqlite::Error> {
     let filtered_currencies: Vec<String> = currencies
         .iter()
@@ -57,7 +99,8 @@ pub(crate) fn find_rates<'c>(
 pub(crate) fn find_rates_with_fallback<'c>(
     conn: &Connection,
     currencies: &[&'c Currency],
-    on: NaiveDate,
+    #[cfg(feature = "chrono")] on: NaiveDate,
+    #[cfg(feature = "time")] on: time::Date,
 ) -> Result<Vec<ExchangeRate<'c, Currency>>, rusqlite::Error> {
     let filtered_currencies: Vec<String> = currencies
         .iter()

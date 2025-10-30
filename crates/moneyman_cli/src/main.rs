@@ -1,14 +1,14 @@
 mod currency;
 
-use std::path::PathBuf;
+use std::{path::PathBuf, str::FromStr};
 
-use chrono::NaiveDate;
 use currency::Currency;
 use moneyman::{ConversionError, ExchangeStore};
 use rust_decimal::Decimal;
 
 use clap::{Command, Parser, Subcommand};
 use rusty_money::{iso, Money};
+use time::format_description::BorrowedFormatItem;
 
 #[derive(Debug, Parser)]
 #[command(author, version, about, long_about = None)]
@@ -20,6 +20,20 @@ struct Cli {
     #[command(subcommand)]
     commands: Option<Commands>,
 }
+
+#[derive(Clone, Copy, Debug)]
+struct MyDate(time::Date);
+
+impl FromStr for MyDate {
+    type Err = time::error::Parse;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        let date = time::Date::parse(s, FORMAT)?;
+        Ok(MyDate(date))
+    }
+}
+
+const FORMAT: &[BorrowedFormatItem<'_>] = time::macros::format_description!("[year]-[month]-[day]");
 
 #[derive(Debug, Subcommand)]
 enum Commands {
@@ -48,7 +62,7 @@ enum Commands {
         /// Specify a specific date to convert. Will use the latest date in
         /// the exchange store if not specified. e.g 2023-05-05
         #[arg(long, value_name = "DATE")]
-        on: Option<NaiveDate>,
+        on: Option<MyDate>,
 
         // TODO: Implement
         // /// Where moneyman will save its local data store. Default: ~/.moneyman
@@ -75,7 +89,7 @@ const MONEYMAN: &str = "
 fn print_result_no_fallback(
     from_amount: Money<iso::Currency>,
     converted_amount: Result<Money<iso::Currency>, ConversionError>,
-    date: NaiveDate,
+    date: time::Date,
 ) {
     match converted_amount {
         Ok(money) => {
@@ -91,7 +105,7 @@ fn print_result_no_fallback(
         Err(ConversionError::MalformedExchangeStore) => {
             println!("The local data store may have been corrupted. You could try syncing it with `--force`.");
         }
-        Err(ConversionError::NoExchangeRate(date)) => {
+        Err(ConversionError::NoExchangeRateDate(date)) => {
             println!(
                 "No available rates on date {}. Some options:\n\n\t1. Sync with the latest ECB rates if you haven't already; or\n\t2. Use the --fallback flag to attempt to interpolate the rates",
                 date
@@ -103,6 +117,7 @@ fn print_result_no_fallback(
         Err(ConversionError::SameCurrency) => {
             println!("It's 1. ONEEEEEEEEEEEEEEEEEEEEE");
         }
+        Err(_) => println!("Something failed. But, how did you get here..?"),
     }
 }
 
@@ -136,7 +151,7 @@ fn main() {
             amount,
             from,
             to,
-            on: Some(date),
+            on: Some(MyDate(date)),
             fallback: false,
         }) => {
             let from_money = Money::from_decimal(amount, &from.0);
@@ -169,7 +184,7 @@ fn main() {
             amount,
             from,
             to,
-            on: Some(date),
+            on: Some(MyDate(date)),
             fallback: true,
         }) => {
             let store = init_or_get_store(data_dir);
