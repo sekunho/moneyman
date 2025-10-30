@@ -28,6 +28,6 @@ name = "convert"
 harness = false
 
 [features]
-default = ["chrono"]
-time = ["dep:time"]
+default = []
+time = ["dep:time", "rusqlite/time"]
 chrono = ["dep:chrono", "rusqlite/chrono"]

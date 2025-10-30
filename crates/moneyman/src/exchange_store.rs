@@ -41,6 +41,7 @@ pub enum InitError {
     CouldNotRead,
 }
 
+#[non_exhaustive]
 #[derive(Debug)]
 pub enum ConversionError {
     /// Unable to parse the data from the store due to it potentially having
@@ -51,7 +52,7 @@ pub enum ConversionError {
     #[cfg(feature = "chrono")]
     NoExchangeRate(NaiveDate),
     #[cfg(feature = "time")]
-    NoExchangeRate(time::Date),
+    NoExchangeRateDate(time::Date),
     /// If the currency is not recorded by ECB, or if it doesn't exist at all
     InvalidCurrency(Currency),
     /// If they're trying to convert a currency to itself
@@ -108,7 +109,7 @@ impl std::fmt::Display for ConversionError {
             #[cfg(feature = "chrono")]
             ConversionError::NoExchangeRate(naive_date) => write!(f, "could not find the relevant exchange rate on date {naive_date}"),
             #[cfg(feature = "time")]
-            ConversionError::NoExchangeRate(date) => write!(f, "could not find the relevant exchange rate on date {date}"),
+            ConversionError::NoExchangeRateDate(date) => write!(f, "could not find the relevant exchange rate on date {date}"),
             ConversionError::InvalidCurrency(currency) => write!(f, "either {currency} is not a valid currency, or it's not recorded in the European Central Bank"),
             ConversionError::SameCurrency => write!(f, "there's no need to convert anything. it's the same currency."),
         }
@@ -143,6 +144,21 @@ impl ExchangeStore {
         Ok((store, latest_date))
     }
 
+    #[cfg(feature = "time")]
+    pub fn sync(data_dir: PathBuf) -> Result<(Self, time::Date), SyncError> {
+        ecb::download_latest_history(&data_dir).map_err(|_e| SyncError::Download)?;
+
+        let db_path = data_dir.join("eurofxref-hist.db3");
+        let conn = Connection::open(db_path).map_err(|_| SyncError::CouldNotRead)?;
+        let store = ExchangeStore { conn, data_dir };
+
+        persistence::seed::seed_db(&store.conn, &store.data_dir).map_err(|_e| SyncError::Seed)?;
+
+        let latest_date = store.get_latest_date().ok_or(SyncError::CouldNotRead)?;
+
+        Ok((store, latest_date))
+    }
+
     /// Creates a new instance based on the existing data store. If you need
     /// to initialize a data store for the first time, hence need to sync the
     /// history with the European Central Bank, use `ExchangeStore::sync`
@@ -157,12 +173,12 @@ impl ExchangeStore {
     /// This is the "generic" version of the convert function. Along with the
     /// usual data needed to convert two currencies, it also needs you to
     /// provide a closure that returns the exchange rates.
-    #[cfg(feature = "chrono")]
     fn convert<'c, F>(
         &self,
         from_amount: Money<'c, Currency>,
         to_currency: &'c Currency,
-        on_date: NaiveDate,
+        #[cfg(feature = "chrono")] on_date: NaiveDate,
+        #[cfg(feature = "time")] on_date: time::Date,
         find_rates: F,
     ) -> Result<Money<'c, Currency>, ConversionError>
     where
@@ -180,7 +196,11 @@ impl ExchangeStore {
                 let non_eur_currency = if from == iso::EUR { to } else { from };
                 let rates = find_rates(currencies).map_err(|err| match err {
                     rusqlite::Error::QueryReturnedNoRows => {
-                        ConversionError::NoExchangeRate(on_date)
+                        #[cfg(feature = "chrono")]
+                        { ConversionError::NoExchangeRate(on_date) }
+
+                        #[cfg(feature = "time")]
+                        { ConversionError::NoExchangeRateDate(on_date) }
                     }
                     rusqlite::Error::SqlInputError { .. } => {
                         ConversionError::InvalidCurrency(*non_eur_currency)
@@ -193,7 +213,13 @@ impl ExchangeStore {
                     iso::EUR => exchange.get_rate(from, iso::EUR),
                     _ => exchange.get_rate(iso::EUR, to),
                 };
+                #[cfg(feature = "chrono")]
                 let rate = rate.ok_or(ConversionError::NoExchangeRate(on_date))?;
+
+                #[cfg(feature = "time")]
+                let rate = rate.ok_or(ConversionError::NoExchangeRateDate(on_date))?;
+
+
                 let to_money = rate
                     .convert(from_amount)
                     .map_err(|_| ConversionError::SameCurrency)?;
@@ -205,7 +231,11 @@ impl ExchangeStore {
                 let currencies = Vec::from([from, to]);
                 let rates = find_rates(currencies).map_err(|err| match err {
                     rusqlite::Error::QueryReturnedNoRows => {
-                        ConversionError::NoExchangeRate(on_date)
+                        #[cfg(feature = "chrono")]
+                        { ConversionError::NoExchangeRate(on_date) }
+
+                        #[cfg(feature = "time")]
+                        { ConversionError::NoExchangeRateDate(on_date) }
                     }
                     rusqlite::Error::SqlInputError { msg, .. } => {
                         // I uhh.. I think this is fine?
@@ -219,13 +249,25 @@ impl ExchangeStore {
                 // Use EUR as the bridge between currencies
                 let from_curr_to_eur_rate = exchange
                     .get_rate(from, iso::EUR)
-                    .ok_or(ConversionError::NoExchangeRate(on_date))?;
+                    .ok_or({
+                        #[cfg(feature = "chrono")]
+                        { ConversionError::NoExchangeRate(on_date) }
+
+                        #[cfg(feature = "time")]
+                        { ConversionError::NoExchangeRateDate(on_date) }
+                    })?;
                 let eur = from_curr_to_eur_rate
                     .convert(from_amount)
                     .map_err(|_| ConversionError::SameCurrency)?;
                 let from_eur_to_target_curr_rate = exchange
                     .get_rate(iso::EUR, to)
-                    .ok_or(ConversionError::NoExchangeRate(on_date))?;
+                    .ok_or({
+                        #[cfg(feature = "chrono")]
+                        { ConversionError::NoExchangeRate(on_date) }
+
+                        #[cfg(feature = "time")]
+                        { ConversionError::NoExchangeRateDate(on_date) }
+                    })?;
                 let target_money = from_eur_to_target_curr_rate
                     .convert(eur)
                     .map_err(|_| ConversionError::SameCurrency)?;
@@ -258,6 +300,24 @@ impl ExchangeStore {
         self.convert(from_amount, to_currency, on_date, find_rates)
     }
 
+    #[cfg(feature = "time")]
+    pub fn convert_on_date_with_fallback<'c>(
+        &self,
+        from_amount: Money<'c, Currency>,
+        to_currency: &'c Currency,
+        on_date: time::Date,
+    ) -> Result<Money<'c, Currency>, ConversionError> {
+        let find_rates = |currencies: Vec<&'c Currency>| {
+            persistence::exchange_rate::find_rates_with_fallback(
+                &self.conn,
+                currencies.as_slice(),
+                on_date,
+            )
+        };
+
+        self.convert(from_amount, to_currency, on_date, find_rates)
+    }
+
     /// Converts currencies using the rate on the given date. If the requested
     /// date doesn't exist, then it'll return with the error
     /// `ConversionError::NoExchangeRate`.
@@ -275,9 +335,28 @@ impl ExchangeStore {
         self.convert(from_amount, to_currency, on_date, find_rates)
     }
 
+    #[cfg(feature = "time")]
+    pub fn convert_on_date<'c>(
+        &self,
+        from_amount: Money<'c, Currency>,
+        to_currency: &'c Currency,
+        on_date: time::Date,
+    ) -> Result<Money<'c, Currency>, ConversionError> {
+        let find_rates = |currencies: Vec<&'c Currency>| {
+            persistence::exchange_rate::find_rates(&self.conn, currencies.as_slice(), on_date)
+        };
+
+        self.convert(from_amount, to_currency, on_date, find_rates)
+    }
+
     #[cfg(feature = "chrono")]
     pub fn get_latest_date(&self) -> Option<NaiveDate> {
-        persistence::exchange_rate::get_latest_date(&self.conn).ok()
+        persistence::exchange_rate::get_latest_date::<NaiveDate>(&self.conn).ok()
+    }
+
+    #[cfg(feature = "time")]
+    pub fn get_latest_date(&self) -> Option<time::Date> {
+        persistence::exchange_rate::get_latest_date::<time::Date>(&self.conn).ok()
     }
 }
 
