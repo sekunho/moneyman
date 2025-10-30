@@ -1,8 +1,8 @@
 name: Release
 on:
   push:
-    tags:
-      - 'v[0-9]+.[0-9]+.[0-9]+'
+    # tags:
+    #   - 'v[0-9]+.[0-9]+.[0-9]+'
 jobs:
   build:
     strategy:
@@ -42,28 +42,28 @@ jobs:
           name: moneyman-${{ matrix.os }}-amd64
           path: target/${{ matrix.target }}/release/moneyman
           if-no-files-found: error
-  release:
-    permissions:
-      contents: write
-    needs: build
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v2
-      - name: Download
-        uses: actions/download-artifact@v6
-      - name: Layout
-        run: |
-          mv moneyman-ubuntu-latest-amd64/moneyman ./moneyman-linux-amd64
-          mv moneyman-macos-latest-amd64/moneyman ./moneyman-darwin-amd64
-          rm -rf moneyman-ubuntu-latest-amd64 moneyman-macos-latest-amd64
-      - name: Release
-        uses: softprops/action-gh-release@v1
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        with:
-          generate_release_notes: true
-          draft: true
-          fail_on_unmatched_files: true
-          files: |
-            moneyman-darwin-amd64
-            moneyman-linux-amd64
+  # release:
+  #   permissions:
+  #     contents: write
+  #   needs: build
+  #   runs-on: ubuntu-latest
+  #   steps:
+  #     - uses: actions/checkout@v2
+  #     - name: Download
+  #       uses: actions/download-artifact@v6
+  #     - name: Layout
+  #       run: |
+  #         mv moneyman-ubuntu-latest-amd64/moneyman ./moneyman-linux-amd64
+  #         mv moneyman-macos-latest-amd64/moneyman ./moneyman-darwin-amd64
+  #         rm -rf moneyman-ubuntu-latest-amd64 moneyman-macos-latest-amd64
+  #     - name: Release
+  #       uses: softprops/action-gh-release@v1
+  #       env:
+  #         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+  #       with:
+  #         generate_release_notes: true
+  #         draft: true
+  #         fail_on_unmatched_files: true
+  #         files: |
+  #           moneyman-darwin-amd64
+  #           moneyman-linux-amd64
