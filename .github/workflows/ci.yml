@@ -1,29 +1,24 @@
 name: CI
 on:
   push:
-    branches: [ main ]
+    branches: [main]
   pull_request:
-    branches: [ main ]
+    branches: [main]
   schedule:
     - cron: "0 0 * * *"
 jobs:
   build:
     runs-on: ubuntu-latest
-
     steps:
-    - uses: actions/checkout@v4
-    - uses: DeterminateSystems/nix-installer-action@v14
-    - uses: DeterminateSystems/magic-nix-cache-action@v8
-    - uses: DeterminateSystems/flake-checker-action@v9
-
-    - name: Run tests
-      run: nix develop .#devShells.x86_64-linux.ci --command bash -c "cargo test"
-
-    - name: Build
-      run: nix build .#packages.x86_64-linux.moneyman
-
-    - name: Formatting
-      run: nix develop .#devShells.x86_64-linux.ci --command bash -c "rustfmt --check crates/**/src/**/*"
-
-    - name: Clippy, the final gatekeeper
-      run: nix develop .#devShells.x86_64-linux.ci --command bash -c "cargo clippy -- -Dwarnings"
+      - uses: actions/checkout@v4
+      - uses: DeterminateSystems/nix-installer-action@v14
+      - uses: DeterminateSystems/magic-nix-cache-action@v8
+      - uses: DeterminateSystems/flake-checker-action@v9
+      - name: Run tests
+        run: nix develop .#devShells.x86_64-linux.ci --command bash -c "cargo test"
+      - name: Build
+        run: nix build .#packages.x86_64-linux.moneyman
+      - name: Formatting
+        run: nix develop .#devShells.x86_64-linux.ci --command bash -c "rustfmt --check crates/**/src/**/*"
+      - name: Clippy, the final gatekeeper
+        run: nix develop .#devShells.x86_64-linux.ci --command bash -c "cargo clippy -- -Dwarnings"
