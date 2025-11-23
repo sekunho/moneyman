@@ -42,10 +42,9 @@ enum Commands {
         #[arg(short, long)]
         /// Don't do this unless you known the exchange store is messed up
         force: bool,
-        // TODO: Implement
-        // /// Where moneyman will save its local data store. Default: ~/.moneyman
-        // #[arg(long, value_name = "DIRECTORY_PATH")]
-        // data_dir: Option<PathBuf>,
+        /// Where moneyman will save its local data store. Default: ~/.moneyman
+        #[arg(long, value_name = "DIRECTORY_PATH")]
+        data_dir: Option<PathBuf>,
     },
     /// Convert one currency to another
     Convert {
@@ -64,10 +63,9 @@ enum Commands {
         #[arg(long, value_name = "DATE")]
         on: Option<MyDate>,
 
-        // TODO: Implement
-        // /// Where moneyman will save its local data store. Default: ~/.moneyman
-        // #[arg(long, value_name = "DIRECTORY_PATH")]
-        // data_dir: Option<PathBuf>,
+        /// Where moneyman will save its local data store. Default: ~/.moneyman
+        #[arg(long, value_name = "DIRECTORY_PATH")]
+        data_dir: Option<PathBuf>,
         /// If this flag is presest, moneyman will interpolate missing rates
         /// based on the neighboring dates with rates.
         #[arg(long)]
@@ -138,12 +136,17 @@ fn init_or_get_store(data_dir: PathBuf) -> ExchangeStore {
     }
 }
 
+// Gets the default directory for moneyman. This is the home folder -> .moneyman.
+// If for some reason the user has no home folder, it panics. One can bypass this
+// by specifying the `--data-dir` flag to manually set a data directory.
+fn default_data_dir () -> PathBuf {
+    dirs::home_dir()
+    .map(|home_dir| home_dir.join(".moneyman"))
+    .expect("If --data-dir=<DIRECTORY_PATH> is not specified, the current user needs a home directory.")
+}
+
 fn main() {
     let cli = Cli::parse();
-
-    let data_dir: PathBuf = dirs::home_dir()
-        .map(|home_dir| home_dir.join(".moneyman"))
-        .expect("need a home directory");
 
     match cli.commands {
         // If the `--on` arg is specified
@@ -153,9 +156,10 @@ fn main() {
             to,
             on: Some(MyDate(date)),
             fallback: false,
+            data_dir,
         }) => {
             let from_money = Money::from_decimal(amount, &from.0);
-            let store = init_or_get_store(data_dir);
+            let store = init_or_get_store(data_dir.unwrap_or_else(default_data_dir));
             let to_money = store.convert_on_date(from_money.clone(), &to.0, date);
             print_result_no_fallback(from_money, to_money, date);
         }
@@ -166,9 +170,10 @@ fn main() {
             to,
             on: None,
             fallback: false,
+            data_dir,
         }) => {
             let from_money = Money::from_decimal(amount, &from.0);
-            let store = init_or_get_store(data_dir);
+            let store = init_or_get_store(data_dir.unwrap_or_else(default_data_dir));
 
             match store.get_latest_date() {
                 Some(date) => {
@@ -186,8 +191,9 @@ fn main() {
             to,
             on: Some(MyDate(date)),
             fallback: true,
+            data_dir,
         }) => {
-            let store = init_or_get_store(data_dir);
+            let store = init_or_get_store(data_dir.unwrap_or_else(default_data_dir));
             let from_money = Money::from_decimal(amount, &from.0);
             let to_money = store.convert_on_date_with_fallback(from_money.clone(), &to.0, date);
             print_result_no_fallback(from_money, to_money, date);
@@ -199,8 +205,9 @@ fn main() {
             to,
             on: None,
             fallback: true,
+            data_dir,
         }) => {
-            let store = init_or_get_store(data_dir);
+            let store = init_or_get_store(data_dir.unwrap_or_else(default_data_dir));
             let from_money = Money::from_decimal(amount, &from.0);
 
             match store.get_latest_date() {
@@ -215,7 +222,8 @@ fn main() {
             }
         }
 
-        Some(Commands::Sync { force }) => {
+        Some(Commands::Sync { force, data_dir }) => {
+            let data_dir = data_dir.unwrap_or_else(default_data_dir);
             if force {
                 let op = std::fs::remove_file(data_dir.join("eurofxref-hist.db3"))
                     .and_then(|_| std::fs::remove_file(data_dir.join("eurofxref-hist.csv")));
